@@ -8,11 +8,10 @@ def postprocess():
     pass
 
 
-def validation(ensemble_class, statistics_writer, epoch, output_folder):
+def validation(ensemble_class, validation_dataloader, criterion, cache, visualize=True):
     """
     runs on entire validation data
     """
-    obj_func = ensemble_class.obj_func
     nsol = ensemble_class.n_mo_sol
     nobj = ensemble_class.n_mo_obj
 
@@ -21,10 +20,8 @@ def validation(ensemble_class, statistics_writer, epoch, output_folder):
     for i, net in enumerate(net_list):
         net.eval()
 
-    output_folder = os.path.join(output_folder, "val")
-    os.makedirs(output_folder, exist_ok=True)
     loss_per_sample_list = [[] for i in range(nsol)]
-    for batch_no, data in enumerate(ensemble_class.validation_dataloader):
+    for batch_no, data in enumerate(validation_dataloader):
         inputs = data["X"]
         targets = data["Y"]
         img1, img2 = inputs[0].numpy(), inputs[1].numpy()
@@ -33,7 +30,7 @@ def validation(ensemble_class, statistics_writer, epoch, output_folder):
             with torch.no_grad():
                 out = net_list[i_mo_sol](inputs)
             outs.append(out[0].data.cpu().numpy())
-            loss_per_sample = obj_func(out, targets)
+            loss_per_sample = criterion(out, targets)
             loss_per_sample = torch.stack(loss_per_sample, dim=0)
             loss_per_sample_list[i_mo_sol].append(loss_per_sample.data.cpu().numpy())
 
@@ -42,7 +39,7 @@ def validation(ensemble_class, statistics_writer, epoch, output_folder):
         losses = np.array(losses) #nsol * nobj * nsample
         sort_indices = [np.argsort(losses[:, 0, i]) for i in range(losses.shape[2])]
 
-        if batch_no==0:
+        if visualize and batch_no==0:
             batchsize = img1.shape[0]
             for i in range(batchsize):
                 outs_i = [item[i, 0, :, :] for item in outs]
@@ -52,14 +49,16 @@ def validation(ensemble_class, statistics_writer, epoch, output_folder):
                 ims = [im1] + outs_i + [im2]
                 img = np.concatenate(ims, axis=1)
                 img = (img*255).astype(np.uint8)
-                cv2.imwrite(os.path.join(output_folder, "epoch{}_im{}.jpg".format(epoch, batch_no*batchsize + i)), img)
+                cv2.imwrite(os.path.join(cache.out_dir_val, "epoch{}_im{}.jpg".format(cache.epoch, batch_no*batchsize + i)), img)
 
     loss_per_sample = [np.concatenate(arr_list, axis=1) for arr_list in  loss_per_sample_list] #list of obj * samples
     mo_obj_val_sample = np.array(loss_per_sample).transpose(2,1,0)  #samples * nobj * nsol
     assert mo_obj_val_sample.ndim==3
     assert(mo_obj_val_sample.shape[1:] == (nobj, nsol))
     m_obj_val_mean = np.mean(mo_obj_val_sample, axis=0)
-    statistics_writer.compute_and_record_validation_statistics(m_obj_val_mean, mo_obj_val_sample)
 
     for i, net in enumerate(net_list):
         net.train()
+    
+    metrics = {"loss": mo_obj_val_sample}
+    return metrics

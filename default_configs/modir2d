@@ -1,0 +1,12 @@
+# See possible parameters in config.py, only add the parameters that differ from default.
+DEBUG = True
+EXPERIMENT_NAME="test_modir2d"
+PROBLEM_NAME="modir"
+DATASET = "MNIST_DIR"
+
+MODEL="Net"
+# MODEL_PARAMS={"depth":4, "width":64, "teacher_weights_path": "/export/scratch3/grewal/OAR_segmentation/runs/uncertainty-weighted-example-mining/khead_unet_imagedepth16_18052022_162149/fold0/run0/weights/best_model.pth"}
+LOSS_FUNCTIONS=["NCCLoss", "TransformationLoss"]
+
+VISUALIZE_OUTPUT = "val"
+SAVE_MODEL = "best"

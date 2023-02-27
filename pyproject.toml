@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "DL-MODIR"
+version = "0.1.0"
+description = ""
+readme = "README.md"
+authors = ["Monika Grewal <grewal@cwi.nl>"]
+
+[tool.poetry.dependencies]
+python = "^3.8.6, <3.12"
+scikit-image = "^0.19.2"
+scikit-learn = "^1.1.1"
+pydantic = {extras = ["dotenv"], version = "^1.10.4"}
+numpy = "~1.23.3"
+tensorboard = "^2.9.0"
+opencv-python = "^4.6.0"
+scipy = "^1.8.1"
+pydicom = "^2.3.0"
+tqdm = "^4.64.1"
+pandas = "^1.4.2"
+notebook = "^6.5.2"
+matplotlib = "^3.6.1"
+simpleitk = "^2.2.1"
+torch-tb-profiler = "^0.4.1"

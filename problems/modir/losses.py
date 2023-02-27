@@ -106,10 +106,9 @@ class TransformationLoss(nn.Module):
         
 class Loss(nn.Module):
     """Evaluation of two losses"""
-    def __init__(self, device, lossname_list):
+    def __init__(self, lossname_list):
         super(Loss, self).__init__()
         implemented_loss = ["NCCLoss", "TransformationLoss", "BendingEnergyLoss"]
-        self.device = device
         self.loss_list = []
         for loss in lossname_list:
             if loss not in implemented_loss:

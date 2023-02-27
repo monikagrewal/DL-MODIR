@@ -1,8 +1,8 @@
 import numpy as np
 import pdb
 import copy
-from functions_hv_python3 import HyperVolume
-from functions_evaluation import determine_non_dom_mo_sol, compute_hv_gradient_2d
+from functions.functions_hv_python3 import HyperVolume
+from functions.functions_evaluation import determine_non_dom_mo_sol, compute_hv_gradient_2d
 
 def determine_mo_sol_in_exterior(mo_obj_val,ref_point):
     # select only mo-solutions that are in the exterior

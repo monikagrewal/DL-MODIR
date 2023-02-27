@@ -1,8 +1,8 @@
 import numpy as np
 import torch
 
-from functions_evaluation import compute_hv_gradient_2d_with_duplicate_handling, compute_hv_gradient_2d, fastNonDominatedSort
-from functions_hv_grad_3d import grad_multi_sweep_with_duplicate_handling
+from functions.functions_evaluation import compute_hv_gradient_2d_with_duplicate_handling, compute_hv_gradient_2d, fastNonDominatedSort
+from functions.functions_hv_grad_3d import grad_multi_sweep_with_duplicate_handling
 
 
 class HigamoHv(object):

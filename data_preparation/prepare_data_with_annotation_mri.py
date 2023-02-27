@@ -409,16 +409,16 @@ def process_dicoms(input_directory, output_directory, save_jpg=False, \
 
 
 if __name__ == '__main__':
-	root_path = '/export/scratch2/grewal/Data/Projects_DICOM_data/ThreeD/MODIR_data_test_split'
-	output_path = '/export/scratch3/grewal/Data/Projects_JPG_data/MO_DIR/MR_sag/MODIR_data_test_split'
-	label_output_path = '/export/scratch3/grewal/Data/Projects_JPG_data/MO_DIR/MR_sag/MODIR_data_test_split_labels'
+	root_path = '/export/scratch2/data/grewal/Data/Projects_DICOM_data/ThreeD/MODIR_data_train_split'
+	output_path = '/export/scratch2/data/grewal/Data/Projects_JPG_data/MO_DIR/MR_sag/MODIR_data_train_split'
+	label_output_path = '/export/scratch2/data/grewal/Data/Projects_JPG_data/MO_DIR/MR_sag/MODIR_data_train_split_labels'
 
 	root_dir = Path(root_path)
 	output_dir = Path(output_path)
 	label_output_dir = Path(label_output_path)
 
 	for i, pp in enumerate(root_dir.glob('*')):
-		# if str(pp) != "/export/scratch3/grewal/Data/MODIR_data_train_split/1479952689_3596254403/20130909":
+		# if str(pp) != "/export/scratch2/data/grewal/Data/MODIR_data_train_split/1479952689_3596254403/20130909":
 		# 	continue
 		print(f"\nProcessing {i} : {pp}\n")
 		# if i >= 1:
