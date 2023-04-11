@@ -1,0 +1,24 @@
+# See possible parameters in config.py, only add the parameters that differ from default.
+DEBUG = False
+EXPERIMENT_NAME = "modir3d_ls_2loss"
+PROBLEM_NAME = "modir3d"
+DATASET = "AMCBrachy"
+DATA_PARAMS = {"root":"/export/scratch2/data/grewal/Data/Projects_JPG_data/MO_DIR/MR_sag/MODIR_data_train_split", "use_segmentation":"true"}
+
+MO_MODE = "mean_loss_over_samples"
+MO_OPTIMIZER = "linear_scalarization"
+MO_OPTIMIZER_PARAMS = {}
+N_MO_SOL = 5
+
+MODEL_NAME = "STUNet"
+MODEL_PARAMS = {"depth":4, "width":64, "use_segmentation":"true", "multi_resolution":"false"}
+LOSS_FUNCTIONS = ["NCCLoss", "SpatialGradientLoss3D"]
+REF_POINT = [20, 20]
+
+BATCHSIZE = 1
+LEARNING_ITERATIONS = 2700
+VALIDATION_FREQUENCY = 27
+LR_SCHEDULER_PARAMS = {"step_size": 100,"gamma": 0.1}
+
+VISUALIZE_OUTPUT = "val"
+SAVE_MODEL = "best"

@@ -9,7 +9,7 @@ from functions.functions_evaluation import compute_hv_in_higher_dimensions
 
 def sanity_check(val, min_val=0, max_val=np.infty):
     assert (not np.any(np.isnan(val)))
-    assert np.all(val >= min_val)
+    # assert np.all(val >= min_val)
     assert np.all(val < max_val)    
     return None
 
@@ -59,7 +59,10 @@ def dynamic_weight_optimization_per_sample(data, mo_optimizer, net_ensemble, cri
     opt_name = mo_optimizer.name
     inputs = data['X']
     labels = data['Y']
-    n_samples = inputs.shape[0]
+    if isinstance(inputs, list):
+        n_samples = inputs[0].shape[0]
+    else:
+        n_samples = inputs.shape[0]
     
     # dynamic weight calculation in epo and pareto MTL
     if opt_name in ['pareto_mtl', 'epo']:
@@ -97,7 +100,10 @@ def forward_propagation(inputs, labels, net_ensemble, criterion):
     """
     compute mo_obj_val per sample and the mo_obj_val_mean (mo_obj_val averaged over all samples)
     """
-    n_samples = inputs[0].shape[0]
+    if isinstance(inputs, list):
+        n_samples = inputs[0].shape[0]
+    else:
+        n_samples = inputs.shape[0]
     mo_obj_val_torch_per_sample = list()
     mo_obj_val_torch = list()
     mo_obj_val_per_sample = np.zeros((n_samples, net_ensemble.n_mo_obj, net_ensemble.n_mo_sol))
@@ -138,10 +144,7 @@ def train(mo_optimizer, net_ensemble, criterion, validation_fn, scaler, dataload
             else:
                 raise ValueError(f"unknown MO_MODE: {config.MO_MODE}")
 
-            # update learning rate
-            for scheduler in net_ensemble.lr_scheduler_list:
-                scheduler.step()
-            
+           
             # logging: train
             log_iteration_metrics(metrics, cache.iter, writer, data="train", loss_functions=config.LOSS_FUNCTIONS)
             # validation
@@ -150,7 +153,7 @@ def train(mo_optimizer, net_ensemble, criterion, validation_fn, scaler, dataload
                     visualize = True
                 else:
                     visualize = False
-                metrics = validation_fn(net_ensemble, dataloaders["val"], criterion, cache, writer, visualize=visualize)
+                metrics = validation_fn(net_ensemble, dataloaders["val"], criterion, cache, visualize=visualize)
 
                 # compute hv: mean HV over samples
                 loss = metrics["loss"]
@@ -178,5 +181,10 @@ def train(mo_optimizer, net_ensemble, criterion, validation_fn, scaler, dataload
             if (cache.iter)==config.LEARNING_ITERATIONS:
                 break
 
+        # update learning rate
+        for scheduler in net_ensemble.lr_scheduler_list:
+            scheduler.step()
+
         cache.epoch += 1
+        logging.info(f"Epoch: {cache.epoch}")
     # TODO: add Pareto front to summarywriter

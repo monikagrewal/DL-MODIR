@@ -3,9 +3,14 @@ import numpy as np, cv2
 import SimpleITK as sitk
 
 
-def resample_voxel_spacing(image, output_spacing, output_size="image"):
+def resample_voxel_spacing(image, output_spacing, output_size="image", interpolator='linear'):
     resample = sitk.ResampleImageFilter()
-    resample.SetInterpolator(sitk.sitkBSpline)
+    if interpolator=='linear':
+        resample.SetInterpolator(sitk.sitkLinear)
+    elif interpolator=='nearest':
+        resample.SetInterpolator(sitk.sitkNearestNeighbor)
+    else:
+        raise ValueError("unknown interpolator: {interpolator}")
     resample.SetOutputDirection(image.GetDirection())
     resample.SetOutputOrigin(image.GetOrigin())
     resample.SetOutputSpacing(output_spacing)
@@ -35,7 +40,7 @@ def rescale_intensity(image, max_val=1.0, min_val=0.):
 
 
 def read_image(filepath, output_spacing=(2.0, 2.0, 2.0), output_size="image", \
-                                 windowing=True, rescaling=True, crop_depth=True, max_depth=200):
+                                 windowing=False, rescaling=True, crop_depth=True, max_depth=200):
     """
     - reads a raw image given filepath
     - applies WW and WL and rescales intensities to range 0 to 1
@@ -79,9 +84,11 @@ def read_image(filepath, output_spacing=(2.0, 2.0, 2.0), output_size="image", \
 
 
 def command_iteration(method) :
-    print("{0:3} = {1:10.5f} : {2}".format(method.GetOptimizerIteration(),
-                                   method.GetMetricValue(),
-                                   method.GetOptimizerPosition()))
+    # print("{0:3} = {1:10.5f} : {2}".format(method.GetOptimizerIteration(),
+    #                                method.GetMetricValue(),
+    #                                method.GetOptimizerPosition()))
+    print("{0:3} = {1:10.6f}".format(method.GetOptimizerIteration(),
+                                   method.GetMetricValue()))
 
 
 def command_multiresolution_iteration(method):
@@ -89,13 +96,18 @@ def command_multiresolution_iteration(method):
     print("============= Resolution Change =============")
 
 
-def resample(image, ref_im, Tx):
+def resample_image(image, ref_im, Tx, interpolator='linear'):
     """
     resample image according to given Tx
     """
     resampler = sitk.ResampleImageFilter()
     resampler.SetReferenceImage(ref_im)
-    resampler.SetInterpolator(sitk.sitkLinear)
+    if interpolator=='linear':
+        resampler.SetInterpolator(sitk.sitkLinear)
+    elif interpolator=='nearest':
+        resampler.SetInterpolator(sitk.sitkNearestNeighbor)
+    else:
+        raise ValueError("unknown interpolator: {interpolator}")
     resampler.SetDefaultPixelValue(0)
     resampler.SetTransform(Tx)
 
@@ -105,19 +117,58 @@ def resample(image, ref_im, Tx):
 
 def affine_registration(fixed_image, moving_image):
     R = sitk.ImageRegistrationMethod()
-    R.SetShrinkFactorsPerLevel([8,4,2,1])
-    R.SetSmoothingSigmasPerLevel([8,4,2,1])
+    R.SetShrinkFactorsPerLevel([8,4,2])
+    R.SetSmoothingSigmasPerLevel([4,2,1])
     R.SetMetricAsJointHistogramMutualInformation()
     # R.SetMetricAsMattesMutualInformation()
     R.SetMetricSamplingStrategy(R.RANDOM)
     R.SetMetricSamplingPercentage(0.2)
     R.MetricUseFixedImageGradientFilterOff()
-    R.SetOptimizerAsGradientDescentLineSearch(learningRate=1.0,
-                                              numberOfIterations=400,
+    R.SetOptimizerAsGradientDescentLineSearch(learningRate=0.1,
+                                              numberOfIterations=1000,
                                               convergenceMinimumValue=1e-6,
                                               convergenceWindowSize=10)
     R.SetOptimizerScalesFromPhysicalShift()
     initialTx = sitk.CenteredTransformInitializer(fixed_image, moving_image, sitk.AffineTransform(fixed_image.GetDimension()))
+    R.SetInitialTransform(initialTx, inPlace=True)
+    R.SetInterpolator(sitk.sitkLinear)
+
+    # R.AddCommand( sitk.sitkIterationEvent, lambda: command_iteration(R) )
+    # R.AddCommand( sitk.sitkMultiResolutionIterationEvent, lambda: command_multiresolution_iteration(R) )
+
+    outTx = R.Execute(fixed_image, moving_image)
+
+    print("-------")
+    print(outTx)
+    print("Optimizer stop condition: {0}".format(R.GetOptimizerStopConditionDescription()))
+    print(" Iteration: {0}".format(R.GetOptimizerIteration()))
+    print(" Metric value: {0}".format(R.GetMetricValue()))
+
+    affine_aligned_image = resample_image(moving_image, fixed_image, outTx)
+
+    status = True
+    if R.GetMetricValue() > -0.2:
+        status = False
+
+    return affine_aligned_image, status, outTx
+
+
+def rigid_registration(fixed_image, moving_image):
+    R = sitk.ImageRegistrationMethod()
+    R.SetShrinkFactorsPerLevel([4,2,1])
+    R.SetSmoothingSigmasPerLevel([2,1,0])
+    # R.SetMetricAsJointHistogramMutualInformation()
+    R.SetMetricAsMattesMutualInformation(numberOfHistogramBins=50)
+    R.SetMetricSamplingStrategy(R.RANDOM)
+    R.SetMetricSamplingPercentage(0.2)
+    R.MetricUseFixedImageGradientFilterOff()
+    R.SetOptimizerAsGradientDescentLineSearch(learningRate=1.0,
+                                              numberOfIterations=100,
+                                              convergenceMinimumValue=1e-6,
+                                              convergenceWindowSize=10)
+    R.SetOptimizerScalesFromPhysicalShift()
+    initialTx = sitk.CenteredTransformInitializer(fixed_image, moving_image, sitk.Euler3DTransform(),
+                                                  sitk.CenteredTransformInitializerFilter.GEOMETRY)
     R.SetInitialTransform(initialTx, inPlace=True)
     R.SetInterpolator(sitk.sitkLinear)
 
@@ -132,13 +183,13 @@ def affine_registration(fixed_image, moving_image):
     print(" Iteration: {0}".format(R.GetOptimizerIteration()))
     print(" Metric value: {0}".format(R.GetMetricValue()))
 
-    affine_aligned_image = resample(moving_image, fixed_image, outTx)
+    aligned_image = resample_image(moving_image, fixed_image, outTx)
 
     status = True
-    if R.GetMetricValue() > -0.5:
+    if R.GetMetricValue() > -0.2:
         status = False
 
-    return affine_aligned_image, status
+    return aligned_image, status, outTx
 
 
 def save_sitk_image(image, filepath):

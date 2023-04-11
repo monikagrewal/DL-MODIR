@@ -43,17 +43,29 @@ class Config(BaseSettings):
 	MO_OPTIMIZER_PARAMS: Dict = {"beta_one": 0.9, "obj_space_normalize": True}
 	MO_MODE: Literal["mean_loss_over_samples", "loss_per_sample"] = "mean_loss_over_samples"
 	N_MO_SOL: int = 5
+	@validator("N_MO_SOL")
+	def check_n_mo_sol(cls, v, values):
+		if v<1:
+			raise ValueError(f"N_MO_SOL should be >= 1.")
+		return v
 	DATASET: str = "MNIST_DIR"
-	DATA_PARAMS: Dict = {"n_samples": 10000, "root": "/export/scratch2/data/grewal/Data"}
+	DATA_PARAMS: Dict = {"root": "/export/scratch2/data/grewal/Data"}
 	MODEL_NAME: str = "Net"
 	MODEL_PARAMS: Dict = {"width":16, "depth":3}
+	@validator("DATA_PARAMS", "MODEL_PARAMS")
+	def convert_to_bool(cls, v, values):
+		str_to_bool = {"true": True, "false": False}
+		for key, val in v.items():
+			if val in ["true", "false"]:
+				v[key] = str_to_bool[val]
+		return v
 	OPTIMIZER: Literal["SGD", "Adam"] = "Adam"
 	OPTIMIZER_PARAMS: Dict = {}
 	LR: float = 1e-3
 	LR_SCHEDULER: Literal["StepLR"] = "StepLR"
 	LR_SCHEDULER_PARAMS: Dict = {"step_size": 1,"gamma": 1.0}
 	WEIGHT_DECAY: float = 1e-4
-	BATCHSIZE: int = 8
+	BATCHSIZE: int = 1
 	LEARNING_ITERATIONS: int = 20
 	LOSS_FUNCTIONS: List = ["NCCLoss", "TransformationLoss"]
 	@validator("LOSS_FUNCTIONS")

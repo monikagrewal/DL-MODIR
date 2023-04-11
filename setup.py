@@ -167,6 +167,7 @@ def setup_train():
     # save config file
     with open(os.path.join(config.OUT_DIR, "run_parameters.json"), "w") as file:
         json.dump(config.dict(), file, indent=4)
+    logging.info(f"CONFIG: {config.dict()}")
 
     # get train procedures
     dataset_fn, model_fn, criterion, validation_fn = load_problem()

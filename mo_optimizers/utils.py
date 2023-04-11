@@ -52,11 +52,15 @@ def generate_k_preferences(K, min_angle=None, max_angle=None):
     generate evenly distributed preference vector
     original code from "circle_points_epo" in (probably) EPO repo
     """
-    ang0 = np.pi / 20. if min_angle is None else min_angle
-    ang1 = np.pi * 9 / 20. if max_angle is None else max_angle
-    angles = np.linspace(ang0, ang1, K)
-    x = np.cos(angles)
-    y = np.sin(angles)
+    if K==1:
+        x = 1.
+        y = 1.
+    else:
+        ang0 = np.pi / 20. if min_angle is None else min_angle
+        ang1 = np.pi * 9 / 20. if max_angle is None else max_angle
+        angles = np.linspace(ang0, ang1, K)
+        x = np.cos(angles)
+        y = np.sin(angles)
     return np.c_[x, y].astype(np.float32)
 
 

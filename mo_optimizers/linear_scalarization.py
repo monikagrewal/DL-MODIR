@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import logging
 from .utils import *
 
 
@@ -19,7 +20,7 @@ class LinearScalarization(object):
         
         assert weights.shape==(n_obj, n_mo_sol)
         self.weights = weights
-        print("fixed weights: ", self.weights)
+        logging.info(f"fixed weights: {self.weights}")
 
 
     def compute_weights(self, mo_obj_val):
