@@ -1,16 +1,17 @@
 # See possible parameters in config.py, only add the parameters that differ from default.
 DEBUG = False
-EXPERIMENT_NAME = "modir3d_voxelmorph_unet"
+EXPERIMENT_NAME = "modir3d_voxelmorph_adaptive_constrained"
 PROBLEM_NAME = "modir3d"
 DATASET = "AMCBrachy"
 DATA_PARAMS = {"root":"/export/scratch2/data/grewal/Data/Projects_JPG_data/MO_DIR/MR_sag/MODIR_data_train_split", "use_segmentation":"true"}
 
 MO_MODE = "mean_loss_over_samples"
 MO_OPTIMIZER = "higamo_hv"
+MO_OPTIMIZER_PARAMS = {"beta_one":0.9, "obj_space_normalize":"true", "adaptive_constraint":"false"}
 N_MO_SOL = 5
 
-MODEL_NAME = "VoxelMorphUNet"
-MODEL_PARAMS = {"int_downsize":1, "int_steps":0, "nb_unet_features": [[32, 64, 64, 128, 128, 256], [256, 512, 256, 256, 128, 128, 64, 64]], "nb_unet_conv_per_level":2}
+MODEL_NAME = "VoxelMorph"
+MODEL_PARAMS = {"int_downsize":1, "int_steps":0}
 LOSS_FUNCTIONS = ["NCCLoss", "SpatialGradientLoss3D"]
 REF_POINT = [10, 10]
 

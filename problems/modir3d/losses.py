@@ -176,11 +176,18 @@ class SegSimilarityLoss(nn.Module):
         inputs: fixed_seg, moving_seg_warped
         """
         fixed_seg, moving_seg_w = inputs[0], inputs[1]
-        ndims = fixed_seg.ndim - 2
-        vol_axes = list(range(2, ndims + 2))
-        top = 2 * (fixed_seg * moving_seg_w).sum(dim=vol_axes)
-        bottom = torch.clamp((fixed_seg + moving_seg_w).sum(dim=vol_axes), min=1e-5)
-        dice = torch.mean(top / bottom, dim=1)
+        # ndims = fixed_seg.ndim - 2
+        # vol_axes = list(range(2, ndims + 2))
+        # top = 2 * (fixed_seg * moving_seg_w).sum(dim=vol_axes)
+        # bottom = torch.clamp((fixed_seg + moving_seg_w).sum(dim=vol_axes), min=1e-5)
+        # dice = torch.mean(top / bottom, dim=1)
+
+        smooth = 1e-5
+        ndims = fixed_seg.ndim - 1
+        vol_axes = list(range(1, ndims + 1))
+        top = 2 * (fixed_seg * moving_seg_w).sum(dim=vol_axes) + smooth
+        bottom = fixed_seg.sum(dim=vol_axes) + moving_seg_w.sum(dim=vol_axes) + smooth
+        dice = top / bottom
         # reduction
         if self.reduction=='mean':
             loss = 1 - torch.mean(dice)
@@ -228,7 +235,7 @@ class Loss(nn.Module):
                                               "SpatialGradientLoss3D"]:
                 loss = loss_fn(inputs[1])
             elif loss_fn.__class__.__name__=="SegSimilarityLoss":
-                loss = loss_fn(inputs[2:])
+                loss = loss_fn([inputs[2], inputs[3]])
             else:
                 raise ValueError(f"loss function {loss_fn.__class__.__name__} unknown.")
             

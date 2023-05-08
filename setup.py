@@ -15,7 +15,7 @@ from torch.utils.tensorboard.writer import SummaryWriter
 from config import config
 from runtime_cache import RuntimeCache
 from mo_optimizers import linear_scalarization, higamo_hv, pareto_mtl
-from net_ensembles import NetEnsemble
+from net_ensembles import DeepEnsemble, KHeadEnsemble
 from training import train
 from utilities.logging import define_chart_layout
 
@@ -222,7 +222,12 @@ def setup_train():
             np.random.seed(config.RANDOM_SEED + i_run)
 
             # Initialize parameters
-            net_ensemble = NetEnsemble(config, model_fn, optimizer_fn, lr_scheduler_fn)
+            if config.ENSEMBLE_TYPE=="deep":
+                net_ensemble = DeepEnsemble(config, model_fn, optimizer_fn, lr_scheduler_fn)
+            elif config.ENSEMBLE_TYPE=="khead":
+                net_ensemble = KHeadEnsemble(config, model_fn, optimizer_fn, lr_scheduler_fn)
+            else:
+                raise ValueError("unknown ensemble type: {config.ENSEMBLE_TYPE}")
 
             # Mixed precision training scaler
             scaler = torch.cuda.amp.GradScaler()

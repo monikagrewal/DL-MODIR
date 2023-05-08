@@ -10,7 +10,7 @@ from importlib import import_module
 from functools import partial
 
 
-class NetEnsemble():
+class DeepEnsemble():
     def __init__(self, config, model_fn, optimizer_fn, lr_scheduler_fn):
         self.name = config.PROBLEM_NAME
         # model = import_module(".{}.model".format(self.name), "problems")
@@ -51,3 +51,36 @@ class NetEnsemble():
         # check that all networks have the same number of parameters
         assert np.all([x == self.n_parameters_list[0] for x in self.n_parameters_list])
         self.n_parameters = self.n_parameters_list[0]
+
+
+class KHeadEnsemble():
+    """
+    wrapper over khead network for MO training
+    """
+    def __init__(self, config, model_fn, optimizer_fn, lr_scheduler_fn):
+        self.name = config.PROBLEM_NAME
+        # model = import_module(".{}.model".format(self.name), "problems")
+        self.n_mo_sol = config.N_MO_SOL
+        self.n_mo_obj = config.N_MO_OBJ
+
+        # model
+        self.model = model_fn(config.MODEL_NAME, target_device=config.DEVICE, K=config.N_MO_SOL, **config.MODEL_PARAMS)
+        self.model.update_device(config.DEVICE)
+        # style transfer needs params to be placed in a list
+        if self.name == 'vincent_van_jarjar':
+            params = [self.model.params]
+        else:
+            params = self.model.params
+        
+        # optimizer
+        self.optimizer = optimizer_fn(params,
+                                    lr=config.LR,
+                                    weight_decay=config.WEIGHT_DECAY,
+                                    **config.OPTIMIZER_PARAMS,
+                                    )
+
+        # lr_scheduler
+        self.lr_scheduler = lr_scheduler_fn(self.optimizer, **config.LR_SCHEDULER_PARAMS)
+
+        # count the number of parameters in all networks. If some do not have 'requires_grad' then this breaks (and probably more stuff in this code)
+        self.n_parameters = int(np.sum([cur_par.numel() for cur_par in self.model.params]))

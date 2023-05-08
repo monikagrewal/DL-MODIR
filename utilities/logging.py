@@ -50,7 +50,10 @@ def log_iteration_metrics(
 
 
 def save_checkpoint(net_ensemble, cache, filename="checkpoint"):
-    state_dicts = [net.state_dict() for net in net_ensemble.net_list]
+    if net_ensemble.__class__.__name__=="DeepEnsemble":
+        state_dicts = [net.state_dict() for net in net_ensemble.net_list]
+    elif net_ensemble.__class__.__name__=="KHeadEnsemble":
+        state_dicts = net_ensemble.model.state_dict()
     checkpoint = {"state_dicts": state_dicts,
                     "epoch": cache.epoch,
                     "iter": cache.iter,

@@ -48,11 +48,13 @@ class Config(BaseSettings):
 		if v<1:
 			raise ValueError(f"N_MO_SOL should be >= 1.")
 		return v
+	ENSEMBLE_TYPE: Literal["deep", "khead"] = "deep"
+
 	DATASET: str = "MNIST_DIR"
 	DATA_PARAMS: Dict = {"root": "/export/scratch2/data/grewal/Data"}
 	MODEL_NAME: str = "Net"
 	MODEL_PARAMS: Dict = {"width":16, "depth":3}
-	@validator("DATA_PARAMS", "MODEL_PARAMS")
+	@validator("DATA_PARAMS", "MODEL_PARAMS", "MO_OPTIMIZER_PARAMS")
 	def convert_to_bool(cls, v, values):
 		str_to_bool = {"true": True, "false": False}
 		for key, val in v.items():

@@ -169,6 +169,9 @@ class VxmDense(nn.Module):
                  src_feats=1,
                  trg_feats=1,
                  unet_half_res=False,
+                 K=1,
+                 use_segmentation=False,
+                 seg_classes=5,
                  **kwargs):
         """ 
         Parameters:
@@ -197,15 +200,20 @@ class VxmDense(nn.Module):
 
         # internal flag indicating whether to return flow or integrated warp during inference
         self.training = True
+        self.use_segmentation = use_segmentation
 
         # ensure correct dimensionality
         ndims = len(inshape)
         assert ndims in [1, 2, 3], 'ndims should be one of 1, 2, or 3. found: %d' % ndims
 
         # configure core unet model
+        if self.use_segmentation:
+            infeats = (src_feats + trg_feats + seg_classes)
+        else:
+            infeats=(src_feats + trg_feats)
         self.unet_model = Unet(
             inshape,
-            infeats=(src_feats + trg_feats),
+            infeats=infeats,
             nb_features=nb_unet_features,
             nb_levels=nb_unet_levels,
             feat_mult=unet_feat_mult,
@@ -215,12 +223,15 @@ class VxmDense(nn.Module):
 
         # configure unet to flow field layer
         Conv = getattr(nn, 'Conv%dd' % ndims)
-        self.flow = Conv(self.unet_model.final_nf, ndims, kernel_size=3, padding=1)
+        self.flow = nn.ModuleList()
+        for i in range(K):
+            flow_layer = Conv(self.unet_model.final_nf, ndims, kernel_size=3, padding=1)
 
-        # init flow layer with small weights and bias
-        sigma = 1e-5  #originally it is 1e-5
-        self.flow.weight = nn.Parameter(Normal(0, sigma).sample(self.flow.weight.shape))
-        self.flow.bias = nn.Parameter(torch.zeros(self.flow.bias.shape))
+            # init flow layer with small weights and bias
+            sigma = 1e-5  #originally it is 1e-5
+            flow_layer.weight = nn.Parameter(Normal(0, sigma).sample(flow_layer.weight.shape))
+            flow_layer.bias = nn.Parameter(torch.zeros(flow_layer.bias.shape))
+            self.flow.append(flow_layer)
 
         # probabilities are not supported in pytorch
         if use_probs:
@@ -262,42 +273,63 @@ class VxmDense(nn.Module):
         target, source = inputs[0].to(device), inputs[1].to(device)
         
         # concatenate inputs and propagate unet
-        x = torch.cat([source, target], dim=1)
+        # concatenate inputs and propagate unet
+        if self.use_segmentation:
+            target_seg = inputs[2].to(device)
+            source_seg = inputs[3].to(device)
+            x = torch.cat([target, source, source_seg], dim=1)
+        else:
+            x = torch.cat([target, source], dim=1)
         x = self.unet_model(x)
 
-        # transform into flow field
-        flow_field = self.flow(x)
+        outputs_list = []
+        for flow_layer in self.flow:
+            # transform into flow field
+            flow_field = flow_layer(x)
 
-        # resize flow for integration
-        pos_flow = flow_field
-        if self.resize:
-            pos_flow = self.resize(pos_flow)
+            # resize flow for integration
+            pos_flow = flow_field
+            if self.resize:
+                pos_flow = self.resize(pos_flow)
 
-        preint_flow = pos_flow
-        logging.debug(f"DVF: max = {preint_flow.max()}, min = {preint_flow.min()}")
+            preint_flow = pos_flow
+            logging.debug(f"DVF: max = {preint_flow.max()}, min = {preint_flow.min()}")
 
-        # negate flow for bidirectional model
-        neg_flow = -pos_flow if self.bidir else None
+            # negate flow for bidirectional model
+            neg_flow = -pos_flow if self.bidir else None
 
-        # integrate to produce diffeomorphic warp
-        if self.integrate:
-            pos_flow = self.integrate(pos_flow)
-            neg_flow = self.integrate(neg_flow) if self.bidir else None
+            # integrate to produce diffeomorphic warp
+            if self.integrate:
+                pos_flow = self.integrate(pos_flow)
+                neg_flow = self.integrate(neg_flow) if self.bidir else None
 
-            # resize to final resolution
-            if self.fullsize:
-                pos_flow = self.fullsize(pos_flow)
-                neg_flow = self.fullsize(neg_flow) if self.bidir else None
+                # resize to final resolution
+                if self.fullsize:
+                    pos_flow = self.fullsize(pos_flow)
+                    neg_flow = self.fullsize(neg_flow) if self.bidir else None
 
-        # warp image with flow field
-        y_source = self.transformer(source, pos_flow)
-        y_target = self.transformer(target, neg_flow) if self.bidir else None
+            # warp image with flow field
+            y_source = self.transformer(source, pos_flow)
+            y_target = self.transformer(target, neg_flow) if self.bidir else None
 
-        # return non-integrated flow field if training
-        if not registration:
-            return (y_source, y_target, preint_flow) if self.bidir else (y_source, preint_flow)
+            # return non-integrated flow field if training
+            if not registration:
+                outputs = [y_source, y_target, preint_flow] if self.bidir else [y_source, preint_flow]
+            else:
+                outputs = [y_source, pos_flow]
+            
+            if self.use_segmentation:
+                target_seg = inputs[2].to(device)
+                source_seg = inputs[3].to(device)
+                source_seg_warped = self.transformer(source_seg, pos_flow)   
+                outputs += [target_seg, source_seg_warped]
+            
+            outputs_list.append(outputs)
+
+        if len(outputs_list)==1:
+            return outputs_list[0]
         else:
-            return y_source, pos_flow
+            return outputs_list
 
 
     def inference(self, x):

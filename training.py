@@ -39,10 +39,19 @@ def dynamic_weight_optimization_mean(data, mo_optimizer, net_ensemble, criterion
 
     dynamic_weights = dynamic_weights.to(config.DEVICE)
     # backward propagation and optimizer step
-    for i_mo_sol in range(0, net_ensemble.n_mo_sol):
-        weighted_objective = torch.sum(dynamic_weights[:, i_mo_sol] * mo_obj_val_torch[i_mo_sol])
+    if net_ensemble.__class__.__name__=="DeepEnsemble":
+        for i_mo_sol in range(0, net_ensemble.n_mo_sol):
+            weighted_objective = torch.sum(dynamic_weights[:, i_mo_sol] * mo_obj_val_torch[i_mo_sol])
+            weighted_objective.backward()
+            net_ensemble.optimizer_list[i_mo_sol].step()
+    elif net_ensemble.__class__.__name__=="KHeadEnsemble":
+        weighted_objective = 0.
+        for i_mo_sol in range(0, net_ensemble.n_mo_sol):
+            # adding torch.mean, does it have an effect on the step size? with mean, the magnitude of weighted_objective for both mo_modes is the same
+            weighted_objective += (1./net_ensemble.n_mo_sol) * torch.sum(dynamic_weights[:, i_mo_sol] * mo_obj_val_torch[i_mo_sol])
+        
         weighted_objective.backward()
-        net_ensemble.optimizer_list[i_mo_sol].step()
+        net_ensemble.optimizer.step()
 
 
     dynamic_weights_cpu = dynamic_weights.cpu().numpy()
@@ -83,11 +92,21 @@ def dynamic_weight_optimization_per_sample(data, mo_optimizer, net_ensemble, cri
     dynamic_weights = dynamic_weights.permute(1, 0)
 
     # backward propagation
-    for i_mo_sol in range(0, net_ensemble.n_mo_sol):
-        # adding torch.mean, does it have an effect on the step size? with mean, the magnitude of weighted_objective for both mo_modes is the same
-        weighted_objective = torch.sum(torch.mean(dynamic_weights_per_sample[i_mo_sol, :, :] * mo_obj_val_torch_per_sample[i_mo_sol], dim=1))
+    if net_ensemble.__class__.__name__=="DeepEnsemble":
+        for i_mo_sol in range(0, net_ensemble.n_mo_sol):
+            # adding torch.mean, does it have an effect on the step size? with mean, the magnitude of weighted_objective for both mo_modes is the same
+            weighted_objective = torch.sum(torch.mean(dynamic_weights_per_sample[i_mo_sol, :, :] * mo_obj_val_torch_per_sample[i_mo_sol], dim=1))
+            weighted_objective.backward()
+            net_ensemble.optimizer_list[i_mo_sol].step()
+    elif net_ensemble.__class__.__name__=="KHeadEnsemble":
+        weighted_objective = 0.
+        for i_mo_sol in range(0, net_ensemble.n_mo_sol):
+            # adding torch.mean, does it have an effect on the step size? with mean, the magnitude of weighted_objective for both mo_modes is the same
+            weighted_objective += (1./net_ensemble.n_mo_sol) * torch.sum(torch.mean(dynamic_weights_per_sample[i_mo_sol, :, :] * mo_obj_val_torch_per_sample[i_mo_sol], dim=1))
+        
         weighted_objective.backward()
-        net_ensemble.optimizer_list[i_mo_sol].step()
+        net_ensemble.optimizer.step()
+
 
     dynamic_weights_cpu = dynamic_weights.cpu().numpy()
     metrics = {"dynamic_weights": dynamic_weights_cpu,
@@ -108,19 +127,35 @@ def forward_propagation(inputs, labels, net_ensemble, criterion):
     mo_obj_val_torch = list()
     mo_obj_val_per_sample = np.zeros((n_samples, net_ensemble.n_mo_obj, net_ensemble.n_mo_sol))
     mo_obj_val_mean = np.zeros((net_ensemble.n_mo_obj, net_ensemble.n_mo_sol))
-    for i_mo_sol in range(0, net_ensemble.n_mo_sol):
-        net_ensemble.optimizer_list[i_mo_sol].zero_grad()
-        
-        Y_hat = net_ensemble.net_list[i_mo_sol](inputs)
-        loss_per_sample = criterion(Y_hat, labels)
-        loss_per_sample = torch.stack(loss_per_sample, dim=0)
-        loss_mean = loss_per_sample.mean(dim=1).view(-1)
 
-        mo_obj_val_torch_per_sample.append(loss_per_sample)
-        mo_obj_val_torch.append(loss_mean)
-        
-        mo_obj_val_per_sample[:, :, i_mo_sol] = loss_per_sample.cpu().detach().numpy().T
-        mo_obj_val_mean[:, i_mo_sol] = loss_mean.cpu().detach().numpy()
+    if net_ensemble.__class__.__name__=="DeepEnsemble":
+        for i_mo_sol in range(0, net_ensemble.n_mo_sol):
+            net_ensemble.optimizer_list[i_mo_sol].zero_grad()
+            
+            Y_hat = net_ensemble.net_list[i_mo_sol](inputs)
+            loss_per_sample = criterion(Y_hat, labels)
+            loss_per_sample = torch.stack(loss_per_sample, dim=0)
+            loss_mean = loss_per_sample.mean(dim=1).view(-1)
+
+            mo_obj_val_torch_per_sample.append(loss_per_sample)
+            mo_obj_val_torch.append(loss_mean)
+            
+            mo_obj_val_per_sample[:, :, i_mo_sol] = loss_per_sample.cpu().detach().numpy().T
+            mo_obj_val_mean[:, i_mo_sol] = loss_mean.cpu().detach().numpy()
+    elif net_ensemble.__class__.__name__=="KHeadEnsemble":
+        net_ensemble.optimizer.zero_grad()
+        Y_hat_list = net_ensemble.model(inputs)
+        for i_mo_sol in range(0, net_ensemble.n_mo_sol):
+            Y_hat = Y_hat_list[i_mo_sol]
+            loss_per_sample = criterion(Y_hat, labels)
+            loss_per_sample = torch.stack(loss_per_sample, dim=0)
+            loss_mean = loss_per_sample.mean(dim=1).view(-1)
+
+            mo_obj_val_torch_per_sample.append(loss_per_sample)
+            mo_obj_val_torch.append(loss_mean)
+            
+            mo_obj_val_per_sample[:, :, i_mo_sol] = loss_per_sample.cpu().detach().numpy().T
+            mo_obj_val_mean[:, i_mo_sol] = loss_mean.cpu().detach().numpy()
 
     # check validity of mo_obj_val_mean & mo_obj_val_per_sample
     sanity_check(mo_obj_val_mean)
@@ -182,8 +217,11 @@ def train(mo_optimizer, net_ensemble, criterion, validation_fn, scaler, dataload
                 break
 
         # update learning rate
-        for scheduler in net_ensemble.lr_scheduler_list:
-            scheduler.step()
+        if net_ensemble.__class__.__name__=="DeepEnsemble":
+            for scheduler in net_ensemble.lr_scheduler_list:
+                scheduler.step()
+        elif net_ensemble.__class__.__name__=="KHeadEnsemble":
+            net_ensemble.lr_scheduler.step()
 
         cache.epoch += 1
         logging.info(f"Epoch: {cache.epoch}")
