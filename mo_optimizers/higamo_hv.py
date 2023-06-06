@@ -25,7 +25,7 @@ class HigamoHv(object):
         self.obj_space_normalize = obj_space_normalize
         self.adaptive_constraint = kwargs.get("adaptive_constraint", False)
         self.adaptive_constraint_iter = kwargs.get("adaptive_constraint_iter", 300)
-        self.constrained_obj = kwargs.get("constrained_obj", 0)
+        self.constrained_obj = kwargs.get("constrained_obj", (0))
 
 
     def compute_weights(self, mo_obj_val):
@@ -39,10 +39,12 @@ class HigamoHv(object):
         #     dyn_ref_point[i_obj] = np.maximum(self.ref_point[i_obj], dyn_ref_point[i_obj])
         if self.adaptive_constraint and \
             self.iter_counter > self.adaptive_constraint_iter:
-            self.dyn_ref_point[self.constrained_obj] = \
-                np.minimum(np.median(
-                mo_obj_val[self.constrained_obj, :]), self.dyn_ref_point[self.constrained_obj]
-                )
+
+            for obj_idx in self.constrained_obj:
+                self.dyn_ref_point[obj_idx] = \
+                    np.minimum(1.5*np.min(
+                    mo_obj_val[obj_idx, :]), self.dyn_ref_point[obj_idx]
+                    )
 
         # clamp loss values to ref point
         for i_obj in range(0, n_mo_obj):

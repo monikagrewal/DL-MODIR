@@ -208,7 +208,7 @@ class VxmDense(nn.Module):
 
         # configure core unet model
         if self.use_segmentation:
-            infeats = (src_feats + trg_feats + seg_classes)
+            infeats = (src_feats + trg_feats + 2*seg_classes)
         else:
             infeats=(src_feats + trg_feats)
         self.unet_model = Unet(
@@ -271,15 +271,15 @@ class VxmDense(nn.Module):
         '''
         device = self.device
         target, source = inputs[0].to(device), inputs[1].to(device)
-        
-        # concatenate inputs and propagate unet
+
         # concatenate inputs and propagate unet
         if self.use_segmentation:
             target_seg = inputs[2].to(device)
             source_seg = inputs[3].to(device)
-            x = torch.cat([target, source, source_seg], dim=1)
+            x = torch.cat([target, source, target_seg, source_seg], dim=1)
         else:
             x = torch.cat([target, source], dim=1)
+        logging.debug(f"input to unet: {x.shape}")
         x = self.unet_model(x)
 
         outputs_list = []

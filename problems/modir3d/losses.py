@@ -218,12 +218,13 @@ class Loss(nn.Module):
                 self.loss_list.append(SegSimilarityLoss(reduction='none'))
 
 
-    def forward(self, inputs, target):
+    def forward(self, inputs, targets):
         """
         inputs is a list of:
-        [moving_im_warped, dvf, fixed_seg (Optional), moving_seg_warped (Optional)]
+        [moving_im_warped, dvf, moving_seg_warped (Optional)]
 
-        target: fixed_im
+        targets is a dict of:
+        [fixed, moving, fixed_seg (Optional), moving_seg (Optional)]
         """
         target = target.to(inputs[0].device)
         losses = []

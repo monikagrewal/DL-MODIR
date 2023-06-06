@@ -20,10 +20,6 @@ class SpatialTransformer(nn.Module):
         grid = torch.unsqueeze(grid, 0)
         grid = grid.type(torch.FloatTensor)
 
-        # # need to normalize grid values to [-1, 1] for resampler, not in original code
-        # for i in range(len(size)):
-        #     grid[:, i, ...] = 2 * (grid[:, i, ...] / (size[i] - 1) - 0.5)
-
         # registering the grid as a buffer cleanly moves it to the GPU, but it also
         # adds it to the state dict. this is annoying since everything in the state dict
         # is included when saving weights to disk, so the model files are way bigger

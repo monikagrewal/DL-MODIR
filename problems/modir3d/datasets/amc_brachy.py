@@ -60,12 +60,12 @@ def arr_resample_voxel_spacing(arr, original_spacing, required_spacing, order=1)
     return arr
 
 
-def preprocess_modir_data(root, csv_path, output_foldername="preprocessed", output_spacing=(1, 1, 3)):
+def preprocess_modir_data(root, csv_path, output_foldername="preprocessed", output_spacing=(1, 1, 3), output_size=[192, 192, 0]):
     output_path = os.path.join(root, output_foldername)
     os.makedirs(output_path, exist_ok=True)
 
     info = pd.read_csv(csv_path)
-    info = info[:100]  #take only 100 in the beginning
+    # info = info[:100]  #take only 100 in the beginning
 
     filepaths_fixed = info["fixed"]
     filepaths_moving = info["moving"]
@@ -87,23 +87,26 @@ def preprocess_modir_data(root, csv_path, output_foldername="preprocessed", outp
 
         fixed_image = read_image(fixed_impaths, output_spacing=None, crop_depth=False, rescaling=True)
         moving_image = read_image(moving_impaths, output_spacing=None, crop_depth=False, rescaling=True)
-        print(f"Spacings: fixed image = {fixed_image.GetSpacing()}, moving image = {moving_image.GetSpacing()}")
+        print(f"Original spacings: fixed image = {fixed_image.GetSpacing()}, moving image = {moving_image.GetSpacing()}")
+        print(f"Original sizes: fixed image = {fixed_image.GetSize()}, moving image = {moving_image.GetSize()}")
 
         # load annotations and generate mask
         fixed_label = generate_mask(fixed_annotations, fixed_meta, fixed_image)
         moving_label = generate_mask(moving_annotations, moving_meta, moving_image)
 
         # resample voxel spacing
-        fixed_image = resample_voxel_spacing(fixed_image, output_spacing=output_spacing, output_size=[192, 192, 0])
-        moving_image = resample_voxel_spacing(moving_image, output_spacing=output_spacing, output_size=[192, 192, 0])
+        fixed_image = resample_voxel_spacing(fixed_image, output_spacing=output_spacing, output_size=output_size)
+        moving_image = resample_voxel_spacing(moving_image, output_spacing=output_spacing, output_size=output_size)
         fixed_label = resample_voxel_spacing(fixed_label, 
                                              output_spacing=output_spacing,
-                                             output_size=[192, 192, 0],
+                                             output_size=output_size,
                                              interpolator='nearest')
         moving_label = resample_voxel_spacing(moving_label,
                                               output_spacing=output_spacing,
-                                              output_size=[192, 192, 0],
+                                              output_size=output_size,
                                               interpolator='nearest')
+        print(f"Resampled spacings: fixed image = {fixed_image.GetSpacing()}, moving image = {moving_image.GetSpacing()}")
+        print(f"Resampled sizes: fixed image = {fixed_image.GetSize()}, moving image = {moving_image.GetSize()}")
 
         try:
             moving_image_aligned, status, outTx = rigid_registration(fixed_image, moving_image)
@@ -142,18 +145,34 @@ def preprocess_modir_data(root, csv_path, output_foldername="preprocessed", outp
             np.save(os.path.join(output_path, filename), moving_label)
 
 
+def embed_seg(x: torch.Tensor, xs: torch.Tensor):
+    """
+    x = input image, 1 * d * h * w
+    xs = input image one-hot encoded seg mask, seg_classes * d * h * w
+    """
+    seg_classes = xs.shape[0]
+    for i in range(1, seg_classes):  # remove background
+        mask = xs[i, :, :, :] == 1
+        mean_intensity = x[0][mask].mean()
+        x[0][mask] = mean_intensity
+    
+    return x
+
 class AMCBrachy():
     """
     Brachytherapy MRI data
     """
-    def __init__(self, root, use_segmentation=True, max_depth=32, num_classes=5):
-        self.num_classes = num_classes
+    def __init__(self, root, use_segmentation=True, max_depth=32, num_classes=5, inplane_size=192, 
+                 classes_to_include=[0,1,2,3,4]):
         self.root = os.path.join(root, "preprocessed")
         self.data = glob.glob(self.root + "/*_Fixed.npy")
         self.data.sort()
 
-        self.use_segmentation = use_segmentation
         self.max_depth = max_depth
+        self.inplane_size = inplane_size
+        self.use_segmentation = use_segmentation
+        self.num_classes = num_classes
+        self.classes_to_include = classes_to_include
 
     def __len__(self):
         return len(self.data)
@@ -162,7 +181,7 @@ class AMCBrachy():
         impath = self.data[index]
         logging.debug(f"impath: {impath}")
         outs = self.load_images(impath)
-        data = {"X": outs, "Y": outs[0]}
+        data = {"X": (outs[0], outs[1]), "Y": outs[0]}
         return data
 
     def load_images(self, impath):
@@ -173,6 +192,10 @@ class AMCBrachy():
         img1 = np.load(impath) #trans, cor, sag
         img2 = np.load(moving_impath)
         logging.debug(f"image sizes: {img1.shape}, {img2.shape}")
+
+        # rescale intensity to 0 to 1
+        img1 = img1 / img1.max()
+        img2 = img2 / img2.max()
 
         # to tensor
         d1, h1, w1 = img1.shape
@@ -188,8 +211,8 @@ class AMCBrachy():
             moving_seg = torch.from_numpy(moving_seg).long()
             # to onehot
             y = torch.eye(self.num_classes, dtype=torch.float32)
-            fixed_seg_onehot = y[fixed_seg].permute(3, 0, 1, 2)
-            moving_seg_onehot = y[moving_seg].permute(3, 0, 1, 2)
+            fixed_seg_onehot = y[fixed_seg].permute(3, 0, 1, 2)[self.classes_to_include]
+            moving_seg_onehot = y[moving_seg].permute(3, 0, 1, 2)[self.classes_to_include]
 
             outputs = (img1, img2, fixed_seg_onehot, moving_seg_onehot)
         else:
@@ -201,6 +224,17 @@ class AMCBrachy():
                                          1)[0]
             end_idx = start_idx + self.max_depth
             outputs = [item[:, start_idx:end_idx, :, :] for item in outputs]
+        
+        # crop center
+        if self.inplane_size is not None:
+            if h1>self.inplane_size: #crop
+                start_idx = int((h1 / 2) - (self.inplane_size / 2))
+                end_idx = start_idx + self.inplane_size
+                outputs = [item[:, :, start_idx:end_idx, start_idx:end_idx] for item in outputs]
+            elif h1<self.inplane_size: #pad
+                pad_start = (self.inplane_size - h1) // 2
+                pad_end = self.inplane_size - h1 - pad_start
+                outputs = [torch.nn.functional.pad(item, (pad_start, pad_end, pad_start, pad_end)) for item in outputs]
  
         return outputs
 

@@ -58,7 +58,7 @@ def dvf_to_im(dvf, n_control_points=32, scale_factor=1):
     return image
 
 
-def seg_to_im(seg:np.array, num_classes:int=5) -> np.array:
+def seg_to_im(seg:np.array, num_classes:int=5, text:str="") -> np.array:
     """
     input: 2D segmentation mask with integer value for each class
     """
@@ -67,6 +67,7 @@ def seg_to_im(seg:np.array, num_classes:int=5) -> np.array:
     for class_idx in range(1, num_classes):
         rr, cc = np.where(seg==class_idx)
         seg_im[rr, cc, :] = class_to_color[class_idx]
+    seg_im = cv2.putText(seg_im, text, (20, 20), cv2.FONT_HERSHEY_COMPLEX, 1, (1,1,1))
     return seg_im
 
 
@@ -148,6 +149,8 @@ def validation(ensemble_class, validation_dataloader, criterion, cache, visualiz
                         cv2.imwrite(os.path.join(cache.out_dir_val, "im{}_slice{}.jpg".format(batch_no*batchsize + i, i_slice)), img)
     else:
         for batch_no, data in enumerate(validation_dataloader):
+            # if batch_no>1:
+            #     break
             inputs = data["X"]
             targets = data["Y"]
             img1, img2 = inputs[0].numpy(), inputs[1].numpy()
@@ -210,7 +213,7 @@ def validation(ensemble_class, validation_dataloader, criterion, cache, visualiz
                         ims_dvf = [empty_im] + dvfs_slice_im + [empty_im]
 
                         segs_slice = [item[i_slice] for item in segs_i]
-                        segs_slice_im = [seg_to_im(item) for item in segs_slice]
+                        segs_slice_im = [seg_to_im(item, text=str(sort_indices[i][idx])) for idx, item in enumerate(segs_slice)]
                         ims_segs = [seg_to_im(im1_seg[i_slice])] + segs_slice_im + [seg_to_im(im2_seg[i_slice])]
 
                         img_row1 = np.concatenate(ims, axis=1)

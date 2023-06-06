@@ -9,13 +9,14 @@ from problems.modir3d.models import (unet,
 								    dirunet,
 				     				stunet,
 								    voxelmorph,
-								    voxelmorph_unet
+								    voxelmorph_unet,
+								    voxelmorph_segunet
 										)
 
 
 
 def get_network(name, **kwargs):
-	implemented_classes = ["STNet", "STUNet", "DIRUNet", "VoxelMorph", "VoxelMorphUNet"]
+	implemented_classes = ["STNet", "STUNet", "DIRUNet", "VoxelMorph", "VoxelMorphUNet", "VoxelMorphSegUNet"]
 	if name not in implemented_classes:
 		raise NotImplementedError("class {} not implemented. \
 			implemented network classes are {}".format(name, implemented_classes))
@@ -29,6 +30,8 @@ def get_network(name, **kwargs):
 		net_object = voxelmorph.VxmDense(**kwargs)
 	elif name == "VoxelMorphUNet":
 		net_object = voxelmorph_unet.VxmDense(**kwargs)
+	elif name == "VoxelMorphSegUNet":
+		net_object = voxelmorph_segunet.VxmDense(**kwargs)
 	else:
 		raise RuntimeError("Something is wrong. \
 			You probably added wrong name for the dataset class in implemented_classes variable")

@@ -4,6 +4,7 @@ import logging
 
 from config import config
 from utilities.logging import log_iteration_metrics, save_checkpoint
+from utilities.functions_plotting import save_os_visualization
 from functions.functions_evaluation import compute_hv_in_higher_dimensions
 
 
@@ -200,6 +201,8 @@ def train(mo_optimizer, net_ensemble, criterion, validation_fn, scaler, dataload
 
                 # logging: val
                 log_iteration_metrics(metrics, cache.iter, writer, data="val", loss_functions=config.LOSS_FUNCTIONS)
+                # visualizing: val pareto front
+                save_os_visualization(metrics["loss"], cache, config.LOSS_FUNCTIONS)
                 # saving
                 mean_hv = float(np.mean(hv_per_sample))
                 cache.hv = mean_hv

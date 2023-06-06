@@ -20,65 +20,26 @@ def visualize_label(meta_list, annotations, label_pp, view="transverse"):
 	# 			7: (1, 0.5, 0), 8: (0, 1, 0.5), 9: (0.5, 0, 1),
 	# 			10: (0.5, 1, 0), 11: (0, 0.5, 1), 12: (1, 0, 0.5)}
 	meta_sorted = sorted(meta_list, key=lambda x: x['SliceLocation'])
-	img_array = []
-	combined_array = []
 	for i, meta in enumerate(meta_sorted):
 		dicom_path = meta['original_path']
 		im = pydicom.dcmread(dicom_path)
 		img = process_dicom_array(im, meta)
-		img_array.append(img)
-		# img_array.append(np.stack((img,)*3, axis=-1))
-		# combined = np.stack((img,)*3, axis=-1)
-		# opacity = 1.0
-		# uid = meta['uid']
-		# annotation = [item for item in annotations if item["uid"]==uid]
-		# for idx, item in enumerate(annotation):
-		# 	coords = item["coords"]
-		# 	coords = np.asarray(coords).squeeze()
-		# 	rr, cc = skimage.draw.polygon(coords[:,0], coords[:,1], shape=img.shape)
-		# 	combined[cc, rr] = opacity*np.array(item["color"]) + (1-opacity)*combined[cc, rr]
 
-		# combined_array.append(combined)
-	
-	img_array = np.array(img_array, dtype=np.float32) #cc * ap * rl
-	# combined_array = np.array(combined_array)
+		img = np.stack((img,)*3, axis=-1)
+		combined = img.copy()
+		opacity = 0.8
+		uid = meta['uid']
+		annotation = [item for item in annotations if item["uid"]==uid]
+		for idx, item in enumerate(annotation):
+			coords = item["coords"]
+			coords = np.asarray(coords).squeeze()
+			rr, cc = skimage.draw.polygon(coords[:,0], coords[:,1], shape=img.shape)
+			combined[cc, rr] = opacity*np.array(item["color"]) + (1-opacity)*combined[cc, rr]
+		
+		combined = np.concatenate((combined, img), axis=1)
+		output_path = str(label_pp) + f"/{i}.jpg"
+		imsave(output_path, (combined*255).astype(np.uint8))
 
-	# interpolation to make equal spacing
-	pixel_spacing = float(meta_sorted[0]["PixelSpacing"][0])
-	slice_thickness = meta_sorted[0]["SliceThickness"]
-	img_array = scipy.ndimage.zoom(img_array, (np.round(slice_thickness/pixel_spacing),\
-									 1, 1), order=1)
-	# combined_array = scipy.ndimage.zoom(combined_array, (slice_thickness, pixel_spacing, pixel_spacing, 1), order=1)
-	
-	if view=="transverse":
-		slices = img_array.shape[0]
-		for i in range(slices):
-			img = img_array[i, :, :]
-			# combined = combined_array[i, :, :, :]
-			# combined = np.concatenate((combined, img), axis=1)
-	
-			output_path = str(label_pp) + f"/{i}.jpg"
-			imsave(output_path, (img*255).astype(np.uint8))
-	elif view=="sagittal":
-		slices = img_array.shape[1]
-		for i in range(slices):
-			img = img_array[:, :, i]
-			# combined = combined_array[:, i, :, :]
-			# combined = np.concatenate((combined, img), axis=1)
-	
-			output_path = str(label_pp) + f"/{i}.jpg"
-			imsave(output_path, (img*255).astype(np.uint8))
-	elif view=="coronal":
-		slices = img_array.shape[2]
-		for i in range(slices):
-			img = img_array[:, i, :]
-			# combined = combined_array[:, :, i, :]
-			# combined = np.concatenate((combined, img), axis=1)
-	
-			output_path = str(label_pp) + f"/{i}.jpg"
-			imsave(output_path, (img*255).astype(np.uint8))
-	else:
-		raise ValueError("Unknown view: {view}. Supported views are: transverse, coronal, sagittal")
 
 
 def visualize_series(meta_list, filepath, view="sagittal"):
@@ -95,8 +56,8 @@ def visualize_series(meta_list, filepath, view="sagittal"):
 	# interpolation to make equal spacing
 	pixel_spacing = float(meta_sorted[0]["PixelSpacing"][0])
 	slice_thickness = meta_sorted[0]["SliceThickness"]
-	img_array = scipy.ndimage.zoom(img_array, (np.round(slice_thickness/pixel_spacing),\
-									 1, 1), order=1)
+	# img_array = scipy.ndimage.zoom(img_array, (np.round(slice_thickness/pixel_spacing),\
+	# 								 1, 1), order=1)
 	
 	imlist = []
 	if view=="transverse":
@@ -270,8 +231,8 @@ def process_rtstruct(rtstruct):
 			for cont in roi.ContourSequence:
 				if cont.ContourGeometricType == 'POINT':
 					# print("Annotation is a point")
-					coords = np.array(list(cont.ContourData)).reshape(-1, 3)
-					assert coords.shape==(1, 3)
+					coords = np.array(list(cont.ContourData)).reshape(-1, 3)[:, 0:2]
+					# assert coords.shape==(1, 3)
 				elif cont.ContourGeometricType == 'CLOSED_PLANAR':
 					# print("Annotation is contour")
 					coords = np.array(list(grouper(cont.ContourData, 3)))[:, 0:2]
@@ -297,16 +258,23 @@ def process_rtstruct(rtstruct):
 
 
 def match_dicoms_and_annotation(dicom_metadata, annotations):
-	# import pdb; pdb.set_trace()
 	series_info = {}
-	for _, annotation in annotations.items():
-		annot_uids = [item["uid"] for item in annotation]
-		for series_id, metadata_list in dicom_metadata.items():
+	for series_id, metadata_list in dicom_metadata.items():
+		series_info[series_id] = {"meta": metadata_list}
+		nmatch = 0
+		for _, annotation in annotations.items():
+			annot_uids = [item["uid"] for item in annotation]
 			matching_uids = [meta["uid"] for meta in metadata_list if meta["uid"] in annot_uids]
 			if len(matching_uids) > 1:
 				annotation = list(map(lambda x: process_annotation(x, metadata_list), annotation))
-				series_info[series_id] = {"meta": metadata_list,
-											"annotation": annotation}
+				existing_match = series_info[series_id].get("annotation", None)
+				if existing_match is None:
+					series_info[series_id]["annotation"] = annotation
+				else:
+					keyname = f"annotation_{nmatch}"
+					series_info[series_id][keyname] = annotation
+				
+				nmatch += 1
 
 	return series_info
 
@@ -353,18 +321,20 @@ def process_dicoms(input_directory, output_directory, save_jpg=False, \
 	
 	root_dir  = Path(input_directory)
 	output_dir  = Path(output_directory)
+	output_dir.mkdir(exist_ok=True, parents=True)
 	dicom_metadata = {}
 	annotations = {}
 	for i, pp in enumerate(root_dir.glob('**/*.dcm')):
 		if not pp.is_file():
-			continue        
+			continue
+		# import pdb; pdb.set_trace()        
 		im = pydicom.dcmread(str(pp))
 		metadata, status = extract_info(im)
 		if metadata['Modality'] == 'RTSTRUCT':
 			annotations[pp] = process_rtstruct(im)
 			continue
 
-		if status and metadata["Modality"] == modality and metadata["orientation"] == orientation:
+		if metadata["Modality"] == modality and metadata["orientation"] == orientation:
 			arr = process_dicom_array(im, metadata)
 			if arr is None:
 				continue
@@ -382,7 +352,6 @@ def process_dicoms(input_directory, output_directory, save_jpg=False, \
 			dicom_metadata[series_id] = series_results
 
 			output_pp = (output_dir / pp_rel).with_suffix('.jpg')
-			output_pp.parent.mkdir(exist_ok=True, parents=True)
 			if save_jpg:
 				imsave(str(output_pp), (arr * 255).astype(np.uint8))
 				metadata['output_path'] = str(output_pp)
@@ -399,26 +368,30 @@ def process_dicoms(input_directory, output_directory, save_jpg=False, \
 			json.dump(info, output_file)
 
 		if label_output_dir is not None:
-			# label_pp = (label_output_dir / pp_rel.parent / series_id)
+			# label_pp = (label_output_dir / series_id)
 			# label_pp.mkdir(exist_ok=True, parents=True)
-			# visualize_label(info["meta"], info["annotation"], label_pp, view="sagittal")
+			# visualize_label(info["meta"], info["annotation"], label_pp, view="transverse")
 			filepath = os.path.join(str(label_output_dir), f"{series_id}.jpg")
-			visualize_series(info["meta"], filepath, view="sagittal")
+			visualize_series(info["meta"], filepath, view="transverse")
 			
 	return None
 
 
 if __name__ == '__main__':
-	root_path = '/export/scratch2/data/grewal/Data/Projects_DICOM_data/ThreeD/MODIR_data_train_split'
-	output_path = '/export/scratch2/data/grewal/Data/Projects_JPG_data/MO_DIR/MR_sag/MODIR_data_train_split'
-	label_output_path = '/export/scratch2/data/grewal/Data/Projects_JPG_data/MO_DIR/MR_sag/MODIR_data_train_split_labels'
+	root_path = '/export/scratch2/data/grewal/Data/Projects_DICOM_data/LUMC_cervical/train'
+	output_path = '/export/scratch2/data/grewal/Data/Projects_JPG_data/MO_DIR/LUMC_cervical_train'
+	label_output_path = '/export/scratch2/data/grewal/Data/Projects_JPG_data/MO_DIR/LUMC_cervical_train_labels'
 
 	root_dir = Path(root_path)
 	output_dir = Path(output_path)
 	label_output_dir = Path(label_output_path)
 
 	for i, pp in enumerate(root_dir.glob('*')):
-		# if str(pp) != "/export/scratch2/data/grewal/Data/MODIR_data_train_split/1479952689_3596254403/20130909":
+		# if str(pp) not in ["/export/scratch2/data/grewal/Data/Projects_DICOM_data/LUMC_cervical/train/CervixRT323",
+		#      				"/export/scratch2/data/grewal/Data/Projects_DICOM_data/LUMC_cervical/train/CervixRT331",
+		# 				     "/export/scratch2/data/grewal/Data/Projects_DICOM_data/LUMC_cervical/train/CervixRT337",
+		# 				     "/export/scratch2/data/grewal/Data/Projects_DICOM_data/LUMC_cervical/train/CervixRT380"
+		# 					]:
 		# 	continue
 		print(f"\nProcessing {i} : {pp}\n")
 		# if i >= 1:
@@ -426,6 +399,6 @@ if __name__ == '__main__':
 
 		dicom_path = str(output_path / pp.relative_to(root_path))
 		dicom_label_path = str(label_output_path / pp.relative_to(root_path))
-		process_dicoms(str(pp), dicom_path, label_output_dir=dicom_label_path)
+		process_dicoms(str(pp), dicom_path, label_output_dir=dicom_label_path, orientation="Transverse")
 
 
