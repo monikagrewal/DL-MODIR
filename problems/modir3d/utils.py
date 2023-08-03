@@ -149,13 +149,13 @@ def validation(ensemble_class, validation_dataloader, criterion, cache, visualiz
                         cv2.imwrite(os.path.join(cache.out_dir_val, "im{}_slice{}.jpg".format(batch_no*batchsize + i, i_slice)), img)
     else:
         for batch_no, data in enumerate(validation_dataloader):
-            # if batch_no>1:
-            #     break
+            if batch_no==10:
+                break
             inputs = data["X"]
             targets = data["Y"]
             img1, img2 = inputs[0].numpy(), inputs[1].numpy()
-            img1_seg = torch.argmax(inputs[2], dim=1).float().numpy()
-            img2_seg = torch.argmax(inputs[3], dim=1).float().numpy()
+            img1_seg = torch.argmax(targets[1], dim=1).float().numpy()
+            img2_seg = torch.argmax(targets[2], dim=1).float().numpy()
             outs = []
             dvfs = []
             segs = []
@@ -182,7 +182,7 @@ def validation(ensemble_class, validation_dataloader, criterion, cache, visualiz
                     outs.append(out[0].data.cpu().numpy())
                     dvf = out[1].permute(0, 2, 3, 4, 1)
                     dvfs.append(dvf.data.cpu().numpy())
-                    seg = torch.argmax(out[3], dim=1).float()
+                    seg = torch.argmax(out[2], dim=1).float()
                     segs.append(seg.data.cpu().numpy())
 
             if visualize:

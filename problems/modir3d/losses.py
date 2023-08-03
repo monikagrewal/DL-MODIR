@@ -195,13 +195,36 @@ class SegSimilarityLoss(nn.Module):
             loss = 1 - dice
         return loss.view(-1)
 
+
+class SegPredictionLoss(nn.Module):
+    """Soft Dice loss for segmentation masks
+    """
+    def __init__(self, reduction='mean'):
+        super(SegPredictionLoss, self).__init__()
+        self.reduction = reduction
+
+    def forward(self, inputs):
+        """
+        inputs: seg_pred, seg_original
+        """
+        seg_pred, seg_original = inputs[0], inputs[1]
+        seg_original = torch.argmax(seg_original, dim=1)
+
+        loss = nn.functional.cross_entropy(seg_pred, seg_original, reduction='none')
+        # reduction
+        if self.reduction=='mean':
+            loss = loss.mean()
+        else:
+            loss = loss.mean(dim=(1,2,3))
+        return loss.view(-1)
+
         
 class Loss(nn.Module):
     """Evaluation of two losses"""
     def __init__(self, lossname_list):
         super(Loss, self).__init__()
         implemented_loss = ["NCCLoss", "TransformationLoss", "BendingEnergyLoss", "SpatialGradientLoss3D", 
-                            "SegSimilarityLoss"]
+                            "SegSimilarityLoss", "SegPredictionLoss"]
         self.loss_list = []
         for loss in lossname_list:
             if loss not in implemented_loss:
@@ -216,9 +239,11 @@ class Loss(nn.Module):
                 self.loss_list.append(SpatialGradientLoss3D(reduction='none'))
             elif loss == "SegSimilarityLoss":
                 self.loss_list.append(SegSimilarityLoss(reduction='none'))
+            elif loss == "SegPredictionLoss":
+                self.loss_list.append(SegPredictionLoss(reduction='none'))
 
 
-    def forward(self, inputs, targets):
+    def forward(self, inputs, target):
         """
         inputs is a list of:
         [moving_im_warped, dvf, moving_seg_warped (Optional)]
@@ -226,17 +251,29 @@ class Loss(nn.Module):
         targets is a dict of:
         [fixed, moving, fixed_seg (Optional), moving_seg (Optional)]
         """
-        target = target.to(inputs[0].device)
+        if isinstance(target, list):
+            target = [item.to(inputs[0].device) for item in target]
+        else:
+            target = target.to(inputs[0].device)
         losses = []
         for loss_fn in self.loss_list:
             if loss_fn.__class__.__name__ in ["NCCLoss", "NCCVoxelMorph"]:
-                loss = loss_fn(inputs[0], target)
+                if isinstance(target, list):
+                    loss = loss_fn(inputs[0], target[0])
+                else:
+                    loss = loss_fn(inputs[0], target)
             elif loss_fn.__class__.__name__ in ["TransformationLoss",
                                               "BendingEnergyLoss",
                                               "SpatialGradientLoss3D"]:
                 loss = loss_fn(inputs[1])
             elif loss_fn.__class__.__name__=="SegSimilarityLoss":
-                loss = loss_fn([inputs[2], inputs[3]])
+                assert type(target)==list
+                loss = loss_fn([inputs[2], target[1]])
+            elif loss_fn.__class__.__name__=="SegPredictionLoss":
+                assert type(target)==list
+                loss1 = loss_fn([inputs[3], target[1]])  #fixed image
+                loss2 = loss_fn([inputs[4], target[2]])  #moving image
+                loss = loss1 + loss2
             else:
                 raise ValueError(f"loss function {loss_fn.__class__.__name__} unknown.")
             

@@ -72,7 +72,7 @@ class Config(BaseSettings):
 	LOSS_FUNCTIONS: List = ["NCCLoss", "TransformationLoss"]
 	@validator("LOSS_FUNCTIONS")
 	def set_n_obj(cls, v, values):
-		assert 1 < len(v) < 4
+		# assert 1 < len(v) < 4
 		values["N_MO_OBJ"] = len(v)
 		return v
 

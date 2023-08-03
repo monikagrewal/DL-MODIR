@@ -32,7 +32,7 @@ def dynamic_weight_optimization_mean(data, mo_optimizer, net_ensemble, criterion
                                                     labels)
 
     # forward propagation
-    _, mo_obj_val_per_sample, mo_obj_val_torch, mo_obj_val_mean = forward_propagation(inputs, labels, net_ensemble, criterion)
+    _, mo_obj_val_per_sample, mo_obj_val_torch, mo_obj_val_mean, so_obj_val = forward_propagation(inputs, labels, net_ensemble, criterion)
 
     # compute dynamic weights
     if opt_name in ['uhv', 'higamo_hv', 'linear_scalarization']:
@@ -51,12 +51,16 @@ def dynamic_weight_optimization_mean(data, mo_optimizer, net_ensemble, criterion
             # adding torch.mean, does it have an effect on the step size? with mean, the magnitude of weighted_objective for both mo_modes is the same
             weighted_objective += (1./net_ensemble.n_mo_sol) * torch.sum(dynamic_weights[:, i_mo_sol] * mo_obj_val_torch[i_mo_sol])
         
+        weighted_objective += so_obj_val
+        
         weighted_objective.backward()
         net_ensemble.optimizer.step()
 
 
     dynamic_weights_cpu = dynamic_weights.cpu().numpy()
-    metrics = {"dynamic_weights": dynamic_weights_cpu,
+    # metrics = {"dynamic_weights": dynamic_weights_cpu,
+    #             "loss": mo_obj_val_per_sample}
+    metrics = {"dynamic_weights": np.concatenate((dynamic_weights_cpu, 10*np.ones((1, net_ensemble.n_mo_sol))), axis=0),
                 "loss": mo_obj_val_per_sample}
 
     return net_ensemble, metrics
@@ -161,8 +165,14 @@ def forward_propagation(inputs, labels, net_ensemble, criterion):
     # check validity of mo_obj_val_mean & mo_obj_val_per_sample
     sanity_check(mo_obj_val_mean)
     sanity_check(mo_obj_val_per_sample)
+    if mo_obj_val_mean.shape[0]>3:
+        mo_obj_val_mean = mo_obj_val_mean[:-1, :]
+        so_obj_val = mo_obj_val_torch[0][-1]
+        mo_obj_val_torch = [item[:-1] for item in mo_obj_val_torch]
+    else:
+        so_obj_val = 0
 
-    outputs = (mo_obj_val_torch_per_sample, mo_obj_val_per_sample, mo_obj_val_torch, mo_obj_val_mean)
+    outputs = (mo_obj_val_torch_per_sample, mo_obj_val_per_sample, mo_obj_val_torch, mo_obj_val_mean, so_obj_val)
     return outputs
 
 

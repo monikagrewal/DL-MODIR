@@ -181,7 +181,14 @@ class AMCBrachy():
         impath = self.data[index]
         logging.debug(f"impath: {impath}")
         outs = self.load_images(impath)
-        data = {"X": (outs[0], outs[1]), "Y": outs[0]}
+        if len(outs)==2:
+            data = {"X": [outs[0], outs[1]], 
+                    "Y": outs[0]
+                    }
+        else:
+            data = {"X": [outs[0], outs[1], outs[3]], 
+                    "Y": [outs[0], outs[2], outs[3]]
+                    }
         return data
 
     def load_images(self, impath):
@@ -214,9 +221,9 @@ class AMCBrachy():
             fixed_seg_onehot = y[fixed_seg].permute(3, 0, 1, 2)[self.classes_to_include]
             moving_seg_onehot = y[moving_seg].permute(3, 0, 1, 2)[self.classes_to_include]
 
-            outputs = (img1, img2, fixed_seg_onehot, moving_seg_onehot)
+            outputs = [img1, img2, fixed_seg_onehot, moving_seg_onehot]
         else:
-            outputs = (img1, img2)
+            outputs = [img1, img2]
 
         # crop depth
         if self.max_depth < 100:

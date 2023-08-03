@@ -32,6 +32,15 @@
 - Design and set up comparison experiments with Elastix, DIRNet, VoxelMorph
 - implement MO-MRDeepDIRNet
 
-- check voxelmorph NCC and gradient loss implementations
+- check voxelmorph NCC and gradient loss implementations: DONE and USED
 
-- Find out if providing segmentation mask as input had additional benefit on the registration performance
+- Find out if providing segmentation mask as input had additional benefit on the registration performance: YES
+
+- weight averaging in mo optimizer after a warmup period: LEAVE IT for the time being
+
+# TO FOCUS NOW
+- commit everything in this branch, make a new cleaner branch
+
+- Write KheadVoxelMorph
+
+- Compare no seg input vs seg input in LS, Compare LS with MO on Validation data

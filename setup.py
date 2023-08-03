@@ -124,6 +124,10 @@ def get_mo_optimizer() -> object:
     if opt_name == "linear_scalarization":
         mo_opt = linear_scalarization.LinearScalarization(n_mo_sol, n_mo_obj, **mo_optimizer_params)
     elif opt_name == "higamo_hv":
+        # hack for mtl version. remove
+        if n_mo_obj==4:
+            n_mo_obj = 3
+            ref_point = ref_point[:3]
         mo_opt = higamo_hv.HigamoHv(n_mo_sol, n_mo_obj, ref_point, **mo_optimizer_params)
     elif opt_name == "pareto_mtl":
         if config.MO_MODE == 'loss_per_sample':
