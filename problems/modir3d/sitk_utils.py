@@ -153,7 +153,7 @@ def affine_registration(fixed_image, moving_image):
     return affine_aligned_image, status, outTx
 
 
-def rigid_registration(fixed_image, moving_image):
+def rigid_registration(fixed_image, moving_image, initialTx=None):
     R = sitk.ImageRegistrationMethod()
     R.SetShrinkFactorsPerLevel([4,2,1])
     R.SetSmoothingSigmasPerLevel([2,1,0])
@@ -167,7 +167,8 @@ def rigid_registration(fixed_image, moving_image):
                                               convergenceMinimumValue=1e-6,
                                               convergenceWindowSize=10)
     R.SetOptimizerScalesFromPhysicalShift()
-    initialTx = sitk.CenteredTransformInitializer(fixed_image, moving_image, sitk.Euler3DTransform(),
+    if initialTx is None:
+        initialTx = sitk.CenteredTransformInitializer(fixed_image, moving_image, sitk.Euler3DTransform(),
                                                   sitk.CenteredTransformInitializerFilter.GEOMETRY)
     R.SetInitialTransform(initialTx, inPlace=True)
     R.SetInterpolator(sitk.sitkLinear)
@@ -259,3 +260,36 @@ def elastix_affine_registration(fixed_image, moving_image):
         status = False
 
     return transformed_image, status
+
+
+def save_dvf_and_jac_as_nifti(deformation_field:np.ndarray, \
+                              spacing:tuple, \
+                              output_dir:str, \
+                            output_name:str="im"):
+    """
+    Save a deformation vector field as a NIfTI image using SimpleITK.
+    
+    Parameters:
+    deformation_field (numpy.ndarray): A 3D array representing the deformation vector field.
+                                     Each element is a 3D vector representing the displacement at a point.
+    output_dir (str): Directory to save the NIfTI image.
+    output_name (str): base name
+    """
+    if len(deformation_field.shape) != 3 or deformation_field.shape[-1] != 3:
+        raise ValueError("Invalid deformation field shape. Expected (X, Y, Z, 3).")
+    
+    deformation_field_sitk = sitk.GetImageFromArray(deformation_field)
+    deformation_field_sitk.SetSpacing(spacing)  # Adjust spacing if needed
+    deformation_field_sitk.SetOrigin((0.0, 0.0, 0.0))  # Adjust origin if needed
+    deformation_field_sitk.SetDirection(np.eye(3).flatten())  # Identity direction matrix
+
+    # Compute the Jacobian determinant using the DisplacementFieldJacobianDeterminant filter
+    jac_det_filter = sitk.DisplacementFieldJacobianDeterminantFilter()
+    jac_det_image = jac_det_filter.Execute(deformation_field_sitk)
+
+    # save
+    output_path = os.path.join(output_dir, output_name + "_dvf.nii.gz")
+    sitk.WriteImage(deformation_field_sitk, output_path)
+    output_path = os.path.join(output_dir, output_name + "_jac.nii.gz")
+    sitk.WriteImage(jac_det_image, output_path)
+    return None

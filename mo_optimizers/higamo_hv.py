@@ -26,6 +26,13 @@ class HigamoHv(object):
         self.adaptive_constraint = kwargs.get("adaptive_constraint", False)
         self.adaptive_constraint_iter = kwargs.get("adaptive_constraint_iter", 300)
         self.constrained_obj = kwargs.get("constrained_obj", (0))
+        self.weighted_hypervolume = kwargs.get("weighted_hypervolume", False)
+        
+        default_gamma = [0 for i in range(n_mo_obj)]
+        gamma = kwargs.get("gamma", default_gamma)
+        gamma = np.repeat(gamma, n_mo_sol).reshape(n_mo_obj, n_mo_sol)
+        self.gamma = np.array(gamma)
+
 
 
     def compute_weights(self, mo_obj_val):
@@ -42,7 +49,7 @@ class HigamoHv(object):
 
             for obj_idx in self.constrained_obj:
                 self.dyn_ref_point[obj_idx] = \
-                    np.minimum(1.5*np.min(
+                    np.minimum(4*np.min(
                     mo_obj_val[obj_idx, :]), self.dyn_ref_point[obj_idx]
                     )
 
@@ -82,6 +89,11 @@ class HigamoHv(object):
             else:
             # use this to deactivate normalization
                 normalized_obj_space_multifront_hv_gradient[:,i_mo_sol] = obj_space_multifront_hv_gradient[:,i_mo_sol]
+
+        # weighted hypervolume
+        if self.weighted_hypervolume:
+            hv_weights = np.exp(-normalized_obj_space_multifront_hv_gradient * self.gamma) / np.exp(-self.gamma)
+            normalized_obj_space_multifront_hv_gradient = hv_weights * normalized_obj_space_multifront_hv_gradient
 
         dynamic_weights = torch.tensor(normalized_obj_space_multifront_hv_gradient, dtype=torch.float)
         return(dynamic_weights)

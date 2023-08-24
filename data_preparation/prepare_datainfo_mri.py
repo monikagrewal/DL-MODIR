@@ -9,8 +9,8 @@ import pandas as pd
 import label_mapping
 
 
-root_dir = Path('/export/scratch2/data/grewal/Data/Projects_JPG_data/MO_DIR/LUMC_cervical_train')
-csv_path = f'./meta/LUMC_cervical_train.csv'
+root_dir = Path('/export/scratch2/data/grewal/Data/Projects_JPG_data/MO_DIR/LUMC_cervical_test_annotated')
+csv_path = f'./meta/LUMC_cervical_test_24082023.csv'
 
 paths = list(root_dir.glob('*/*.json'))
 print("total data: {}".format(len(paths)))
@@ -34,6 +34,13 @@ for path in paths:
                                     str(pixel_spacing[1]), \
                                         str(slice_thickness)])
         
+        # find contour count for each label
+        label_counts = []
+        for label in labels:
+            counts = [1 for item in annotation if label_mapping.map_label(item["label_name"])==label]
+            label_counts.append(np.sum(counts))
+        label_counts = "|".join(str(item) for item in label_counts)
+        
         info_dict = {"root_path": root_dir,\
                     "path": path,\
                     "patient_id": Path(path).relative_to(root_dir).parts[0],\
@@ -42,6 +49,7 @@ for path in paths:
                     "voxel_spacing": voxel_spacing,\
                     "labels": labels,\
                     "no_of_contours": len(annotation),\
+                    "no_of_contours_per_organ": label_counts,\
                     "applicator": "Yes"}
         info_list.append(info_dict)
     

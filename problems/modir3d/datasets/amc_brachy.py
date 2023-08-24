@@ -26,25 +26,27 @@ def generate_mask(annotations, sorted_metadata_list, target_image,
 
     uid_to_slice_idx = dict([(meta['uid'], i) for i, meta in enumerate(sorted_metadata_list)])    
     mask_volume = np.zeros((len(sorted_metadata_list), target_shape[0], target_shape[1]), dtype=np.int32)  
-    for item in sorted(annotations, key=lambda x: uid_to_slice_idx.get(x['uid'], -1)):        
-        uid = item["uid"]
-        slice_idx = uid_to_slice_idx.get(uid, None)
-        if slice_idx is None:
-            continue
-
-        coords_pix = np.array(item["coords"])
+    for item in sorted(annotations, key=lambda x: uid_to_slice_idx.get(x['uid'], -1)):
         label = item["label_name"]
-        label_idx = class2idx.get(label)
-        if label_idx is None:
-            continue
-            
-        rr, cc = skimage.draw.polygon(coords_pix[:,0], coords_pix[:,1], shape=(target_shape[0], target_shape[1]))
+        if label in classes:
+            uid = item["uid"]
+            slice_idx = uid_to_slice_idx.get(uid, None)
+            if slice_idx is None:
+                continue
 
-        # determine whether to overwrite existing annotation label based on predefined ordering 
-        # (for example bladder takes precedence bowel bag)
-        overwrite_mask = class_layer_indici[mask_volume[slice_idx, cc,rr]] < class_layer_indici[label_idx]        
-        rr, cc = rr[overwrite_mask], cc[overwrite_mask]
-        mask_volume[slice_idx, cc, rr] = label_idx
+            coords_pix = np.array(item["coords"])
+            label = item["label_name"]
+            label_idx = class2idx.get(label)
+            if label_idx is None:
+                continue
+                
+            rr, cc = skimage.draw.polygon(coords_pix[:,0], coords_pix[:,1], shape=(target_shape[0], target_shape[1]))
+
+            # determine whether to overwrite existing annotation label based on predefined ordering 
+            # (for example bladder takes precedence bowel bag)
+            overwrite_mask = class_layer_indici[mask_volume[slice_idx, cc,rr]] < class_layer_indici[label_idx]        
+            rr, cc = rr[overwrite_mask], cc[overwrite_mask]
+            mask_volume[slice_idx, cc, rr] = label_idx
 
     # generate sitk image
     mask_image = sitk.GetImageFromArray(mask_volume)
@@ -53,6 +55,38 @@ def generate_mask(annotations, sorted_metadata_list, target_image,
     mask_image.SetDirection(target_image.GetDirection())
     
     return mask_image
+
+
+def generate_pts_list(annotations, sorted_metadata_list):
+    pts_names = ['int_urethral_os', 'ext_urethral_os', 'uterus_top', 'cervix_os',
+                 'isthmus', 'IU_canal_top', 'ureteral_os_right', 'ureteral_os_left',
+                 'int_anal_sfinct', 'coccygis', 'S1S2', 'S2S3', 'S3S4', 'ASBS',
+                 'PIBS_os', 'FH_right', 'FH_left', 'AC_left', 'AC_right', 'rotundum_left',
+                 'a_uterina_right', 'a_uterina_left', 'rotundum_right']
+    
+    uid_to_slice_idx = dict([(meta['uid'], i) for i, meta in enumerate(sorted_metadata_list)])    
+    
+    all_pts = []
+    all_pts_names = []
+    for pts_name in pts_names:
+        item = [item for item in annotations if item["label_name"].lower()==pts_name.lower()]
+        if len(item)==1:
+            uid = item[0]["uid"]
+            slice_idx = uid_to_slice_idx.get(uid, None)
+            if slice_idx is None:
+                logging.warning("This shouldn't happen. \
+                                If annotation is there, it should correspond to a slice number.")
+                continue
+
+            coords_pix = item[0]["coords"]
+            coords_pix = coords_pix[0] + [slice_idx]
+            label = item[0]["label_name"].lower()
+
+            all_pts.append(coords_pix)
+            all_pts_names.append(label)
+
+    return all_pts, all_pts_names
+
 
 def arr_resample_voxel_spacing(arr, original_spacing, required_spacing, order=1):
     zoom_factor = original_spacing / required_spacing
@@ -90,6 +124,23 @@ def preprocess_modir_data(root, csv_path, output_foldername="preprocessed", outp
         print(f"Original spacings: fixed image = {fixed_image.GetSpacing()}, moving image = {moving_image.GetSpacing()}")
         print(f"Original sizes: fixed image = {fixed_image.GetSize()}, moving image = {moving_image.GetSize()}")
 
+
+        # generate pts_list from annotations and convert to mm
+        fixed_pts, fixed_pts_names = generate_pts_list(fixed_annotations, fixed_meta)
+        moving_pts, moving_pts_names = generate_pts_list(moving_annotations, moving_meta)
+
+        # make sure both images have same number of landmarks
+        common_names = list(set(fixed_pts_names) & set(moving_pts_names))
+        if len(common_names) != len(fixed_pts_names) or \
+            len(common_names) != len(moving_pts_names):
+            fixed_pts = [pts for i, pts in enumerate(fixed_pts) if fixed_pts_names[i] in common_names]
+            moving_pts = [pts for i, pts in enumerate(moving_pts) if moving_pts_names[i] in common_names]
+            fixed_pts_names = [name for name in enumerate(fixed_pts_names) if name in common_names]
+            moving_pts_names = [name for name in enumerate(moving_pts_names) if name in common_names]
+
+        fixed_pts_physical = [fixed_image.TransformContinuousIndexToPhysicalPoint(p) for p in fixed_pts]
+        moving_pts_physical = [moving_image.TransformContinuousIndexToPhysicalPoint(p) for p in moving_pts]
+
         # load annotations and generate mask
         fixed_label = generate_mask(fixed_annotations, fixed_meta, fixed_image)
         moving_label = generate_mask(moving_annotations, moving_meta, moving_image)
@@ -105,21 +156,47 @@ def preprocess_modir_data(root, csv_path, output_foldername="preprocessed", outp
                                               output_spacing=output_spacing,
                                               output_size=output_size,
                                               interpolator='nearest')
+        # convert pts to new voxel spacing
+        fixed_pts = [fixed_image.TransformPhysicalPointToContinuousIndex(p) for p in fixed_pts_physical]
+        moving_pts = [moving_image.TransformPhysicalPointToContinuousIndex(p) for p in moving_pts_physical]
+
         print(f"Resampled spacings: fixed image = {fixed_image.GetSpacing()}, moving image = {moving_image.GetSpacing()}")
         print(f"Resampled sizes: fixed image = {fixed_image.GetSize()}, moving image = {moving_image.GetSize()}")
 
         try:
             moving_image_aligned, status, outTx = rigid_registration(fixed_image, moving_image)
-            print("Sizes: Fixed image: {}, Moving image: {} --> {}".format(fixed_image.GetSize(),\
-                                moving_image.GetSize(), moving_image_aligned.GetSize()))
-            moving_label_aligned = resample_image(moving_label, fixed_image, outTx, interpolator='nearest')
         except Exception as e:
             logging.warning(e)
-            status = False
-            continue
+            if "The images do not sufficiently overlap" in str(e) and \
+                                                len(fixed_pts)>0:
+                fixed_pts_physical = [fixed_image.TransformContinuousIndexToPhysicalPoint(p) for p in fixed_pts]
+                moving_pts_physical = [moving_image.TransformContinuousIndexToPhysicalPoint(p) for p in moving_pts]
+                fixed_pts_flat = [c for p in fixed_pts_physical for c in p]        
+                moving_pts_flat = [c for p in moving_pts_physical for c in p]
+                initial_transform = sitk.LandmarkBasedTransformInitializer(sitk.VersorRigid3DTransform(), 
+                                                                                fixed_pts_flat, 
+                                                                                moving_pts_flat)
+                moving_image_aligned, status, outTx = rigid_registration(fixed_image, moving_image, initialTx=initial_transform)
+            else:
+                import pdb; pdb.set_trace()
+                status = False
+                continue
         status = True
 
         if status:
+            print("Sizes: Fixed image: {}, Moving image: {} --> {}".format(fixed_image.GetSize(),\
+                                moving_image.GetSize(), moving_image_aligned.GetSize()))
+            moving_label_aligned = resample_image(moving_label, fixed_image, outTx, interpolator='nearest')
+            
+            if len(fixed_pts)>0:
+                inverseTx = outTx.GetInverse()
+                moving_pts_physical = [moving_image.TransformContinuousIndexToPhysicalPoint(p) for p in moving_pts]
+                moving_pts_physical_transformed = [inverseTx.TransformPoint(p) for p in moving_pts_physical]
+                moving_pts_transformed = [fixed_image.TransformPhysicalPointToContinuousIndex(p) for p in \
+                                         moving_pts_physical_transformed]
+            else:
+                moving_pts_transformed = []
+
             img1 = sitk.GetArrayFromImage(fixed_image)
             img2 = sitk.GetArrayFromImage(moving_image_aligned)
             fixed_label = sitk.GetArrayFromImage(fixed_label)
@@ -138,11 +215,17 @@ def preprocess_modir_data(root, csv_path, output_foldername="preprocessed", outp
             np.save(os.path.join(output_path, filename), img1)
             filename = "{0:03d}_Fixed_label".format(i)
             np.save(os.path.join(output_path, filename), fixed_label)
+            filename = "{0:03d}_Fixed_points.json".format(i)
+            obj = {"pts": fixed_pts, "names": fixed_pts_names}
+            json.dump(obj, open(os.path.join(output_path, filename), "w"))
 
             filename = "{0:03d}_Moving".format(i)
             np.save(os.path.join(output_path, filename), img2)
             filename = "{0:03d}_Moving_label".format(i)
             np.save(os.path.join(output_path, filename), moving_label)
+            filename = "{0:03d}_Moving_points.json".format(i)
+            obj = {"pts": moving_pts_transformed, "names": moving_pts_names}
+            json.dump(obj, open(os.path.join(output_path, filename), "w"))
 
 
 def embed_seg(x: torch.Tensor, xs: torch.Tensor):
@@ -163,16 +246,27 @@ class AMCBrachy():
     Brachytherapy MRI data
     """
     def __init__(self, root, use_segmentation=True, max_depth=32, num_classes=5, inplane_size=192, 
-                 classes_to_include=[0,1,2,3,4]):
+                 classes_to_include=[0,1,2,3,4], load_pts=True):
         self.root = os.path.join(root, "preprocessed")
         self.data = glob.glob(self.root + "/*_Fixed.npy")
         self.data.sort()
+
+        # -----------------------------------------------------------
+        # remove image 88: rectum segmentation missing in some slices
+        #         and 107: bladder segmentation missing in some slices
+        # For details, check data_preparation/meta/LUMC_cervical_train_pairs_annotation.csv
+        # -----------------------------------------------------------
+        filename_to_remove = glob.glob(self.root + "/088_Fixed.npy") +\
+                            glob.glob(self.root + "/107_Fixed.npy*")
+        for filename in filename_to_remove:
+            self.data.remove(filename)
 
         self.max_depth = max_depth
         self.inplane_size = inplane_size
         self.use_segmentation = use_segmentation
         self.num_classes = num_classes
         self.classes_to_include = classes_to_include
+        self.load_pts = load_pts
 
     def __len__(self):
         return len(self.data)
@@ -185,10 +279,17 @@ class AMCBrachy():
             data = {"X": [outs[0], outs[1]], 
                     "Y": outs[0]
                     }
-        else:
-            data = {"X": [outs[0], outs[1], outs[3]], 
-                    "Y": [outs[0], outs[2], outs[3]]
+        elif self.use_segmentation and not self.load_pts:
+            data = {"X": [outs[0], outs[1], outs[2], outs[3]], 
+                    "Y": [outs[0], outs[2]]
                     }
+        elif self.use_segmentation and self.load_pts:
+            data = {"X": [outs[0], outs[1], outs[2], outs[3]], 
+                    "Y": [outs[0], outs[2]],
+                    "pts": [outs[4], outs[5]]
+                    }
+        elif not self.use_segmentation and self.load_pts:
+            raise ValueError("Please don't do this.")
         return data
 
     def load_images(self, impath):
@@ -210,6 +311,7 @@ class AMCBrachy():
         d2, h2, w2 = img2.shape
         img2 = torch.from_numpy(img2).float().view(1, d2, h2, w2)
         
+        outputs = [img1, img2]
         if self.use_segmentation:
             fixed_seg = np.load(impath.replace("Fixed", "Fixed_label"))
             moving_seg = np.load(impath.replace("Fixed", "Moving_label"))
@@ -221,27 +323,42 @@ class AMCBrachy():
             fixed_seg_onehot = y[fixed_seg].permute(3, 0, 1, 2)[self.classes_to_include]
             moving_seg_onehot = y[moving_seg].permute(3, 0, 1, 2)[self.classes_to_include]
 
-            outputs = [img1, img2, fixed_seg_onehot, moving_seg_onehot]
-        else:
-            outputs = [img1, img2]
-
+            outputs += [fixed_seg_onehot, moving_seg_onehot]
+        
         # crop depth
+        start_idx_depth = 0
         if self.max_depth < 100:
-            start_idx = np.random.choice(list(range(0, d1 - self.max_depth)), 
+            start_idx_depth = np.random.choice(list(range(0, d1 - self.max_depth)), 
                                          1)[0]
-            end_idx = start_idx + self.max_depth
-            outputs = [item[:, start_idx:end_idx, :, :] for item in outputs]
+            end_idx = start_idx_depth + self.max_depth
+            outputs = [item[:, start_idx_depth:end_idx, :, :] for item in outputs]
         
         # crop center
+        start_idx_inplane = 0
         if self.inplane_size is not None:
             if h1>self.inplane_size: #crop
                 start_idx = int((h1 / 2) - (self.inplane_size / 2))
                 end_idx = start_idx + self.inplane_size
                 outputs = [item[:, :, start_idx:end_idx, start_idx:end_idx] for item in outputs]
+                start_idx_inplane = -start_idx
             elif h1<self.inplane_size: #pad
                 pad_start = (self.inplane_size - h1) // 2
                 pad_end = self.inplane_size - h1 - pad_start
                 outputs = [torch.nn.functional.pad(item, (pad_start, pad_end, pad_start, pad_end)) for item in outputs]
+                start_idx_inplane = pad_start
+        
+        if self.load_pts:
+            fixed_pts_path = impath.replace("Fixed", "Fixed_points").replace("npy", "json")
+            fixed_pts = np.array(json.load(open(fixed_pts_path, "r"))["pts"])
+
+            moving_pts_path = impath.replace("Fixed", "Moving_points").replace("npy", "json")
+            moving_pts = np.array(json.load(open(moving_pts_path, "r"))["pts"])
+
+            # adjust for cropping and padding
+            fixed_pts = fixed_pts + np.array([start_idx_inplane, start_idx_inplane, -start_idx_depth])
+            moving_pts = moving_pts + np.array([start_idx_inplane, start_idx_inplane, -start_idx_depth])
+
+            outputs += [fixed_pts, moving_pts]
  
         return outputs
 

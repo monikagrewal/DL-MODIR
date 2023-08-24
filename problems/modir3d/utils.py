@@ -63,7 +63,8 @@ def seg_to_im(seg:np.array, num_classes:int=5, text:str="") -> np.array:
     input: 2D segmentation mask with integer value for each class
     """
     class_to_color = {1:(0,0,1), 2:(0,1,0), 3:(0,1,1), 4:(1,0,0)}
-    seg_im = cv2.cvtColor(seg, cv2.COLOR_GRAY2BGR)
+    seg_im = np.zeros(seg.shape, dtype=np.uint8)
+    seg_im = cv2.cvtColor(seg_im, cv2.COLOR_GRAY2BGR)
     for class_idx in range(1, num_classes):
         rr, cc = np.where(seg==class_idx)
         seg_im[rr, cc, :] = class_to_color[class_idx]
@@ -71,175 +72,102 @@ def seg_to_im(seg:np.array, num_classes:int=5, text:str="") -> np.array:
     return seg_im
 
 
-def validation(ensemble_class, validation_dataloader, criterion, cache, visualize=True):
+def convert_points_to_image(samp_pts, d, H, W):
     """
-    runs on entire validation data
+    Inputs:-
+    samp_pts: b, 1, 1, k, 3
     """
-    nsol = ensemble_class.n_mo_sol
-    nobj = ensemble_class.n_mo_obj
 
-    # eval mode on in each network
-    if ensemble_class.__class__.__name__=="DeepEnsemble":
-        net_list = ensemble_class.net_list
-        for i, net in enumerate(net_list):
-            net.eval()
-        use_segmentation = getattr(net_list[0], "use_segmentation", False)
-    elif ensemble_class.__class__.__name__=="KHeadEnsemble":
-        ensemble_class.model.eval()
-        use_segmentation = getattr(ensemble_class.model, "use_segmentation", False)
-
-    loss_per_sample_list = [[] for i in range(nsol)]
-    if not use_segmentation:
-        for batch_no, data in enumerate(validation_dataloader):
-            inputs = data["X"]
-            targets = data["Y"]
-            img1, img2 = inputs[0].numpy(), inputs[1].numpy()
-            outs = []
-            dvfs = []
-            if ensemble_class.__class__.__name__=="DeepEnsemble":
-                for i_mo_sol in range(0, nsol):
-                    with torch.no_grad():
-                        out = net_list[i_mo_sol](inputs)
-                    loss_per_sample = criterion(out, targets)
-                    loss_per_sample = torch.stack(loss_per_sample, dim=0)
-                    loss_per_sample_list[i_mo_sol].append(loss_per_sample.data.cpu().numpy())
-                    outs.append(out[0].data.cpu().numpy())
-                    dvf = out[1].permute(0, 2, 3, 4, 1)
-                    dvfs.append(dvf.data.cpu().numpy())
-            elif ensemble_class.__class__.__name__=="KHeadEnsemble":
-                with torch.no_grad():
-                    outs_torch = ensemble_class.model(inputs)
-                for i_mo_sol in range(0, nsol):
-                    out = outs_torch[i_mo_sol]
-                    loss_per_sample = criterion(out, targets)
-                    loss_per_sample = torch.stack(loss_per_sample, dim=0)
-                    loss_per_sample_list[i_mo_sol].append(loss_per_sample.data.cpu().numpy())
-                    outs.append(out[0].data.cpu().numpy())
-                    dvf = out[1].permute(0, 2, 3, 4, 1)
-                    dvfs.append(dvf.data.cpu().numpy())
-
-            if visualize:
-                # sorting outs for visualization
-                losses = [item[-1] for item in loss_per_sample_list]
-                losses = np.array(losses) #nsol * nobj * nsample
-                sort_indices = [np.argsort(losses[:, 0, i]) for i in range(losses.shape[2])]
-
-                batchsize = img1.shape[0]
-                for i in range(batchsize):
-                    outs_i = [item[i, 0, :, :, :] for item in outs]
-                    outs_i = [outs_i[idx] for idx in sort_indices[i]] #sort outs_i acc to sort indices
-                    dvfs_i = [item[i, :, :, :, :] for item in dvfs]
-                    dvfs_i = [dvfs_i[idx] for idx in sort_indices[i]] #sort outs_i acc to sort indices
-                    im1 = img1[i, 0, :, :, :]
-                    im2 = img2[i, 0, :, :, :]
-
-                    nslices = im1.shape[0]
-                    for i_slice in range(nslices):
-                        outs_slice = [item[i_slice] for item in outs_i]
-                        ims = [im1[i_slice]] + outs_slice + [im2[i_slice]]
-                        dvfs_slice = [item[i_slice] for item in dvfs_i]
-                        dvfs_slice_im = [dvf_to_im(item) for item in dvfs_slice]
-                        empty_im = np.zeros_like(dvfs_slice_im[0])
-                        ims_dvf = [empty_im] + dvfs_slice_im + [empty_im]
-                        img11 = np.concatenate(ims, axis=1)
-                        img11 = cv2.cvtColor((img11*255).astype(np.uint8), cv2.COLOR_GRAY2BGR)
-                        img22 = np.concatenate(ims_dvf, axis=1)
-                        img = np.concatenate((img11, img22), axis=0)
-
-                        cv2.imwrite(os.path.join(cache.out_dir_val, "im{}_slice{}.jpg".format(batch_no*batchsize + i, i_slice)), img)
-    else:
-        for batch_no, data in enumerate(validation_dataloader):
-            if batch_no==10:
-                break
-            inputs = data["X"]
-            targets = data["Y"]
-            img1, img2 = inputs[0].numpy(), inputs[1].numpy()
-            img1_seg = torch.argmax(targets[1], dim=1).float().numpy()
-            img2_seg = torch.argmax(targets[2], dim=1).float().numpy()
-            outs = []
-            dvfs = []
-            segs = []
-            if ensemble_class.__class__.__name__=="DeepEnsemble":
-                for i_mo_sol in range(0, nsol):
-                    with torch.no_grad():
-                        out = net_list[i_mo_sol](inputs)
-                    loss_per_sample = criterion(out, targets)
-                    loss_per_sample = torch.stack(loss_per_sample, dim=0)
-                    loss_per_sample_list[i_mo_sol].append(loss_per_sample.data.cpu().numpy())
-                    outs.append(out[0].data.cpu().numpy())
-                    dvf = out[1].permute(0, 2, 3, 4, 1)
-                    dvfs.append(dvf.data.cpu().numpy())
-                    seg = torch.argmax(out[3], dim=1).float()
-                    segs.append(seg.data.cpu().numpy())
-            elif ensemble_class.__class__.__name__=="KHeadEnsemble":
-                with torch.no_grad():
-                    outs_torch = ensemble_class.model(inputs)
-                for i_mo_sol in range(0, nsol):
-                    out = outs_torch[i_mo_sol]
-                    loss_per_sample = criterion(out, targets)
-                    loss_per_sample = torch.stack(loss_per_sample, dim=0)
-                    loss_per_sample_list[i_mo_sol].append(loss_per_sample.data.cpu().numpy())
-                    outs.append(out[0].data.cpu().numpy())
-                    dvf = out[1].permute(0, 2, 3, 4, 1)
-                    dvfs.append(dvf.data.cpu().numpy())
-                    seg = torch.argmax(out[2], dim=1).float()
-                    segs.append(seg.data.cpu().numpy())
-
-            if visualize:
-                # sorting outs for visualization
-                losses = [item[-1] for item in loss_per_sample_list]
-                losses = np.array(losses) #nsol * nobj * nsample
-                sort_indices = [np.argsort(losses[:, 0, i]) for i in range(losses.shape[2])]
-
-                batchsize = img1.shape[0]
-                for i in range(batchsize):
-                    #sort outs_i acc to sort indices, and slice batch
-                    outs_i = [outs[idx][i, 0, :, :, :] for idx in sort_indices[i]] 
-                    dvfs_i = [dvfs[idx][i, :, :, :, :] for idx in sort_indices[i]]
-                    segs_i = [segs[idx][i, :, :, :] for idx in sort_indices[i]]
-                    im1 = img1[i, 0, :, :, :]
-                    im2 = img2[i, 0, :, :, :]
-                    im1_seg = img1_seg[i, :, :, :]
-                    im2_seg = img2_seg[i, :, :, :]
-
-                    nslices = im1.shape[0]
-                    for i_slice in range(nslices):
-                        outs_slice = [item[i_slice] for item in outs_i]
-                        ims = [im1[i_slice]] + outs_slice + [im2[i_slice]]
-
-                        dvfs_slice = [item[i_slice] for item in dvfs_i]
-                        dvfs_slice_im = [dvf_to_im(item) for item in dvfs_slice]
-                        empty_im = np.zeros_like(dvfs_slice_im[0])
-                        ims_dvf = [empty_im] + dvfs_slice_im + [empty_im]
-
-                        segs_slice = [item[i_slice] for item in segs_i]
-                        segs_slice_im = [seg_to_im(item, text=str(sort_indices[i][idx])) for idx, item in enumerate(segs_slice)]
-                        ims_segs = [seg_to_im(im1_seg[i_slice])] + segs_slice_im + [seg_to_im(im2_seg[i_slice])]
-
-                        img_row1 = np.concatenate(ims, axis=1)
-                        img_row1 = cv2.cvtColor((img_row1*255).astype(np.uint8), cv2.COLOR_GRAY2BGR)
-                        img_row2 = np.concatenate(ims_dvf, axis=1)
-                        img_row3 = (np.concatenate(ims_segs, axis=1)*255).astype(np.uint8)
-                        alpha = 0.4
-                        mask = img_row3 > 0
-                        img_row3_masked = img_row1.copy()
-                        img_row3_masked[mask] = alpha * img_row1[mask] + (1 - alpha) * img_row3[mask]
-                        img = np.concatenate((img_row1, img_row2, img_row3_masked), axis=0)
-
-                        cv2.imwrite(os.path.join(cache.out_dir_val, "im{}_slice{}.jpg".format(batch_no*batchsize + i, i_slice)), img)
+    b, _, _, K, _ = samp_pts.shape
+    # Convert pytorch -> numpy.
+    samp_pts = samp_pts.data.cpu().numpy().reshape(b, K, 3)
+    samp_pts = (samp_pts + 1.) / 2.
+    samp_pts = np.round(samp_pts * np.array([float(W-1), float(H-1), float(d-1)]).reshape(1, 1, 3), 0)
+    return samp_pts.astype(np.int32)
 
 
-    loss_per_sample = [np.concatenate(arr_list, axis=1) for arr_list in  loss_per_sample_list] #list of obj * samples
-    mo_obj_val_sample = np.array(loss_per_sample).transpose(2,1,0)  #samples * nobj * nsol
-    assert mo_obj_val_sample.ndim==3
-    assert(mo_obj_val_sample.shape[1:] == (nobj, nsol))
-    m_obj_val_mean = np.mean(mo_obj_val_sample, axis=0)
+def convert_points_to_torch(pts, d, H, W, device="cuda:0"):
+    """
+    Inputs:-
+    pts: k, 3 (W, H, d)
+    """
 
-    if ensemble_class.__class__.__name__=="DeepEnsemble":
-        for i, net in enumerate(net_list):
-            net.train()
-    elif ensemble_class.__class__.__name__=="KHeadEnsemble":
-        ensemble_class.model.train()
+    samp_pts = torch.from_numpy(pts.astype(np.float32))
+    samp_pts[:, 0] = (samp_pts[:, 0] * 2. / (W-1)) - 1.
+    samp_pts[:, 1] = (samp_pts[:, 1] * 2. / (H-1)) - 1.
+    samp_pts[:, 2] = (samp_pts[:, 2] * 2. / (d-1)) - 1.
+    samp_pts = samp_pts.view(1, 1, 1, -1, 3)
+    samp_pts = samp_pts.float().to(device)
+    return samp_pts
+
+
+def calculate_determinant_of_jacobian(self, deformation_field:np.array):
+    """
+    Calculate the determinant of the Jacobian matrix for a deformation vector field.
     
-    metrics = {"loss": mo_obj_val_sample}
-    return metrics
+    Parameters:
+    deformation_field (numpy.ndarray): A 3D array representing the deformation vector field.
+                                    Each element is a 3D vector representing the displacement at a point.
+                                    
+    Returns:
+    determinant (numpy.ndarray): A 3D array containing the determinants of the Jacobian matrices for each point.
+    """
+    shape = deformation_field.shape
+    if len(shape) != 4 or shape[-1] != 3:
+        raise ValueError("Invalid deformation field shape. Expected (X, Y, Z, 3).")
+    
+    deformation_grad = np.gradient(deformation_field, axis=(0, 1, 2))
+    
+    determinant = np.zeros((shape[0], shape[1], shape[2]))
+    for i in range(shape[0]):
+        for j in range(shape[1]):
+            for k in range(shape[2]):
+                jac_matrix = np.array([[deformation_grad[0][i,j,k,0], deformation_grad[0][i,j,k,1], deformation_grad[0][i,j,k,2]],
+                                    [deformation_grad[1][i,j,k,0], deformation_grad[1][i,j,k,1], deformation_grad[1][i,j,k,2]],
+                                    [deformation_grad[2][i,j,k,0], deformation_grad[2][i,j,k,1], deformation_grad[2][i,j,k,2]]])
+                determinant[i, j, k] = np.linalg.det(jac_matrix)
+    
+    return determinant
+    
+
+def calculate_tre(self, points_in_target, points_in_source, deformation_field:np.array):
+    #TODO: change to torch
+    """
+    Calculate the TRE
+    
+    Parameters:
+    deformation_field (numpy.ndarray): TODO
+                                    
+    Returns:
+    determinant (numpy.ndarray): TODO
+    """
+    shape = deformation_field.shape
+    if len(shape) != 4 or shape[-1] != 3:
+        raise ValueError("Invalid deformation field shape. Expected (X, Y, Z, 3).")
+    
+    pts2_torch = convert_points_to_torch(np.array(pts2_pred), *shape, device=device)   #1, 1, 1, k, 3
+
+    deformation_torch = torch.from_numpy(deformation).to(device).permute(0, 4, 1, 2, 3)  #b, 3, d, h, w
+    pts1_actual = F.grid_sample(deformation_torch, pts2_torch) #b, 3, 1, 1, k
+    pts1_actual = pts1_actual.permute(0, 2, 3, 4, 1) #b, 1, 1, k, 3
+    pts1_actual = convert_points_to_image(pts1_actual, *shape)
+    pts1_actual = pts1_actual.reshape(-1, 3)
+    
+    return tre
+
+
+def calculate_jac_analytics(detOfJacobian):
+	npixels = detOfJacobian.size
+	less_than_0 = (detOfJacobian <= 0).sum()
+	more_than_2 = (detOfJacobian > 2).sum()
+	jac_analytics = {"npixels": float(npixels),
+					"less_than_0": float(less_than_0),
+					"more_than_2": float(more_than_2)}
+	return jac_analytics
+
+
+def target_registration_errors(pts1, pts2, spacing1=(1, 1, 1), spacing2=(1, 1, 1)):
+	pts1_mm = np.array(pts1) * np.array(spacing1).reshape(1, -1)
+	pts2_mm = np.array(pts2) * np.array(spacing2).reshape(1, -1)
+	errors = np.linalg.norm(pts1_mm -  pts2_mm, axis=1)
+	return errors.tolist()

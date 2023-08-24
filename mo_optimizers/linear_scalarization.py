@@ -17,11 +17,11 @@ class LinearScalarization(object):
             weights = torch.from_numpy(weights.copy()).float()
         else:
             weights = torch.tensor(weights).float()
+            weights = torch.transpose(weights, 0, 1)
         
+        logging.info(f"fixed weights: {weights}, shape: {weights.shape}")
         assert weights.shape==(n_obj, n_mo_sol)
         self.weights = weights
-        logging.info(f"fixed weights: {self.weights}")
-
 
     def compute_weights(self, mo_obj_val):
         return self.weights

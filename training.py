@@ -58,9 +58,7 @@ def dynamic_weight_optimization_mean(data, mo_optimizer, net_ensemble, criterion
 
 
     dynamic_weights_cpu = dynamic_weights.cpu().numpy()
-    # metrics = {"dynamic_weights": dynamic_weights_cpu,
-    #             "loss": mo_obj_val_per_sample}
-    metrics = {"dynamic_weights": np.concatenate((dynamic_weights_cpu, 10*np.ones((1, net_ensemble.n_mo_sol))), axis=0),
+    metrics = {"dynamic_weights": dynamic_weights_cpu,
                 "loss": mo_obj_val_per_sample}
 
     return net_ensemble, metrics
@@ -195,7 +193,7 @@ def train(mo_optimizer, net_ensemble, criterion, validation_fn, scaler, dataload
             log_iteration_metrics(metrics, cache.iter, writer, data="train", loss_functions=config.LOSS_FUNCTIONS)
             # validation
             if ( (cache.iter+1)%config.VALIDATION_FREQUENCY )==0 or ( (cache.iter+1)==config.LEARNING_ITERATIONS ):
-                if config.VISUALIZE_OUTPUT == "val":
+                if config.VISUALIZE_OUTPUT in ["val", "all"]:
                     visualize = True
                 else:
                     visualize = False
@@ -212,7 +210,7 @@ def train(mo_optimizer, net_ensemble, criterion, validation_fn, scaler, dataload
                 # logging: val
                 log_iteration_metrics(metrics, cache.iter, writer, data="val", loss_functions=config.LOSS_FUNCTIONS)
                 # visualizing: val pareto front
-                save_os_visualization(metrics["loss"], cache, config.LOSS_FUNCTIONS)
+                save_os_visualization(metrics["loss"], cache.out_dir_val, config.LOSS_FUNCTIONS)
                 # saving
                 mean_hv = float(np.mean(hv_per_sample))
                 cache.hv = mean_hv

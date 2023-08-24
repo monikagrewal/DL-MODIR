@@ -2,6 +2,7 @@ import logging
 import os
 from datetime import datetime
 
+from cli import cli_args
 from config import config
 from setup import setup_test, setup_train
 
@@ -34,11 +35,11 @@ if __name__ == "__main__":
     try:
         start_time = datetime.now()
         logging.info(f"Start time: {start_time}")
-        if config.__class__.__name__=="Config":
+        if cli_args.env_file:
             # Train model and test on validation dataset
             logging.info("Training model")
             setup_train()
-        elif config.__class__.__name__=="TestConfig":
+        elif cli_args.test_env_file:
             # Run model on test dataset
             logging.info("Testing model")
             setup_test()

@@ -38,9 +38,29 @@
 
 - weight averaging in mo optimizer after a warmup period: LEAVE IT for the time being
 
-# TO FOCUS NOW
+# TO FOCUS NOW - 03 August, 2023
 - commit everything in this branch, make a new cleaner branch
 
 - Write KheadVoxelMorph
 
 - Compare no seg input vs seg input in LS, Compare LS with MO on Validation data
+
+# TODO: 3 August, 2023
+- check `mo_voxelmorph` if it works with K=1 also.
+- implement both `ConvBlock` capability: custom and original. DONE
+- check `mo_voxelmorph` with `K=1`, and original `ConvBlock` should be original `VoxelMorph`.
+- remove remaining `style-transfer` related customizations.
+- test run
+- In data: check split, remove scans with missing labels DONE
+
+- test data LUMC has landmarks and contours in one RTSTRUCT
+- test data AMC has only landmarks in the given RTSTRUCT
+- Prepare test data (annotated) by affine registration and applying it on the contours and landmarks
+- Save deformation to sitk image, calculate det of jacobian
+- make comparison Pareto front visualization 
+        -- (TRE, percent folding, 1 - dice)
+        -- same color for all predictions from one approach
+        -- two projections
+- To compare:
+        -- HV deep vs HV k-decoders
+        -- LS vs HV

@@ -322,7 +322,7 @@ class VxmDense(nn.Module):
                 target_seg = inputs[2].to(device)
                 source_seg = inputs[3].to(device)
                 source_seg_warped = self.transformer(source_seg, pos_flow)   
-                outputs += [target_seg, source_seg_warped]
+                outputs += [source_seg_warped]
             
             outputs_list.append(outputs)
         

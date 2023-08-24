@@ -69,6 +69,7 @@ class Config(BaseSettings):
 	WEIGHT_DECAY: float = 1e-4
 	BATCHSIZE: int = 1
 	LEARNING_ITERATIONS: int = 20
+	N_MO_OBJ: int = 2 #note: LOSS_FUNCTIONS overwrites N_MO_OBJ
 	LOSS_FUNCTIONS: List = ["NCCLoss", "TransformationLoss"]
 	@validator("LOSS_FUNCTIONS")
 	def set_n_obj(cls, v, values):

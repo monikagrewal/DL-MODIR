@@ -20,20 +20,25 @@ from training import train
 from utilities.logging import define_chart_layout
 
 
-def load_problem() -> Tuple:
+def load_problem(mode="train") -> Tuple:
     if config.PROBLEM_NAME=="modir":
         logging.debug("Problem name: modir")
-        from problems.modir import data, model, losses, utils
+        from problems.modir import data, model, losses, inference
     elif config.PROBLEM_NAME=="modir3d":
         logging.debug("Problem name: modir3d")
-        from problems.modir3d import data, model, losses, utils
+        from problems.modir3d import data, model, losses, inference
     else:
         raise ValueError(f"PROBLEM_NAME = {config.PROBLEM_NAME} not identified.")
     
     dataset_fn = data.get_dataset
     model_fn = model.get_network
     criterion = losses.Loss(config.LOSS_FUNCTIONS)
-    validation_fn = utils.validation
+    if mode=="train":
+        validation_fn = inference.validation
+    elif mode=="test":
+        validation_fn = inference.testing
+    else:
+        logging.error("unknown mode.")
     return dataset_fn, model_fn, criterion, validation_fn
 
 
@@ -253,5 +258,44 @@ def setup_train():
 
 
 def setup_test():
-    logging.info("testing not implemented yet.")
-    pass
+    from testing import main as test
+
+    # load dataset
+    dataset_fn, model_fn, criterion, test_fn = load_problem(mode="test")
+    test_dataset = dataset_fn(config.DATASET, train=False, **config.DATA_PARAMS)
+    logging.info(f"Total dataset: {len(test_dataset)}")
+
+    dataloader = DataLoader(
+        test_dataset, shuffle=False, batch_size=config.BATCHSIZE, num_workers=3
+    )
+
+    if config.NFOLDS==0:
+        NFOLDS = 1
+    else:
+        NFOLDS = config.NFOLDS
+    for i_fold in range(NFOLDS):
+        for i_run in range(config.NRUNS):
+            logging.info(f"Run: {i_run}, Fold: {i_fold}")
+            # initialize cache and summarywriter
+            cache = RuntimeCache(mode="test")
+            run_dir = os.path.join(config.OUT_DIR, f"fold{i_fold}", f"run{i_run}")
+            cache.set_subfolder_names(run_dir, config.FOLDERNAMES)
+            cache.out_dir_test = os.path.join(run_dir, "test")
+            if not os.path.exists(cache.out_dir_test):
+                os.makedirs(cache.out_dir_test, exist_ok=True)
+            writer = SummaryWriter(cache.out_dir_test)
+
+            # Initialize parameters and load weights
+            weights_path = os.path.join(
+                cache.out_dir_weights, f"checkpoint_{config.SAVE_MODEL}.pth"
+            )
+            if config.ENSEMBLE_TYPE=="deep":
+                net_ensemble = DeepEnsemble(config, model_fn, weights_path=weights_path)
+            elif config.ENSEMBLE_TYPE=="khead":
+                net_ensemble = KHeadEnsemble(config, model_fn, weights_path=weights_path)
+            else:
+                raise ValueError("unknown ensemble type: {config.ENSEMBLE_TYPE}")
+            logging.info("Model initialized for testing")
+
+            test(test_fn, net_ensemble, dataloader, criterion, cache, writer)
+

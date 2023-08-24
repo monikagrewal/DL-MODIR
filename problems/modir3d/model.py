@@ -4,34 +4,21 @@ import torch.nn.functional as F
 import torch.nn.init
 from torchvision import models
 
-from problems.modir3d.models import (unet,
-				     				stnet,
-								    dirunet,
-				     				stunet,
+from problems.modir3d.models import (mo_voxelmorph,
 								    voxelmorph,
-								    voxelmorph_unet,
-								    voxelmorph_segunet
 										)
 
 
 
 def get_network(name, **kwargs):
-	implemented_classes = ["STNet", "STUNet", "DIRUNet", "VoxelMorph", "VoxelMorphUNet", "VoxelMorphSegUNet"]
+	implemented_classes = ["VoxelMorph", "MOVoxelMorph"]
 	if name not in implemented_classes:
 		raise NotImplementedError("class {} not implemented. \
 			implemented network classes are {}".format(name, implemented_classes))
-	elif name == "STNet":
-		net_object = stnet.STNet(**kwargs)
-	elif name == "DIRUNet":
-		net_object = dirunet.DIRUNet(**kwargs)
-	elif name == "STUNet":
-		net_object = stunet.STUNet(**kwargs)
 	elif name == "VoxelMorph":
 		net_object = voxelmorph.VxmDense(**kwargs)
-	elif name == "VoxelMorphUNet":
-		net_object = voxelmorph_unet.VxmDense(**kwargs)
-	elif name == "VoxelMorphSegUNet":
-		net_object = voxelmorph_segunet.VxmDense(**kwargs)
+	elif name == "MOVoxelMorph":
+		net_object = mo_voxelmorph.VxmDense(**kwargs)
 	else:
 		raise RuntimeError("Something is wrong. \
 			You probably added wrong name for the dataset class in implemented_classes variable")

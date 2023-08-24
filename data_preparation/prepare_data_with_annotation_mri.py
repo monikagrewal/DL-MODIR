@@ -33,8 +33,14 @@ def visualize_label(meta_list, annotations, label_pp, view="transverse"):
 		for idx, item in enumerate(annotation):
 			coords = item["coords"]
 			coords = np.asarray(coords).squeeze()
-			rr, cc = skimage.draw.polygon(coords[:,0], coords[:,1], shape=img.shape)
-			combined[cc, rr] = opacity*np.array(item["color"]) + (1-opacity)*combined[cc, rr]
+			if coords.ndim==1:
+				coords = coords.astype(np.int16)
+				rr, cc = skimage.draw.disk((coords[1], coords[0]), radius=2, shape=img.shape)
+				combined[rr, cc] = np.array((1, 0, 0))
+			else:
+				pass
+				# rr, cc = skimage.draw.polygon(coords[:,1], coords[:,0], shape=img.shape)
+				# combined[rr, cc] = opacity*np.array(item["color"]) + (1-opacity)*combined[rr, cc]
 		
 		combined = np.concatenate((combined, img), axis=1)
 		output_path = str(label_pp) + f"/{i}.jpg"
@@ -368,9 +374,9 @@ def process_dicoms(input_directory, output_directory, save_jpg=False, \
 			json.dump(info, output_file)
 
 		if label_output_dir is not None:
-			# label_pp = (label_output_dir / series_id)
-			# label_pp.mkdir(exist_ok=True, parents=True)
-			# visualize_label(info["meta"], info["annotation"], label_pp, view="transverse")
+			label_pp = (label_output_dir / series_id)
+			label_pp.mkdir(exist_ok=True, parents=True)
+			visualize_label(info["meta"], info["annotation"], label_pp, view="transverse")
 			filepath = os.path.join(str(label_output_dir), f"{series_id}.jpg")
 			visualize_series(info["meta"], filepath, view="transverse")
 			
@@ -378,10 +384,18 @@ def process_dicoms(input_directory, output_directory, save_jpg=False, \
 
 
 if __name__ == '__main__':
-	root_path = '/export/scratch2/data/grewal/Data/Projects_DICOM_data/LUMC_cervical/train'
-	output_path = '/export/scratch2/data/grewal/Data/Projects_JPG_data/MO_DIR/LUMC_cervical_train'
-	label_output_path = '/export/scratch2/data/grewal/Data/Projects_JPG_data/MO_DIR/LUMC_cervical_train_labels'
+	# root_path = '/export/scratch2/data/grewal/Data/Projects_DICOM_data/LUMC_cervical/train'
+	# output_path = '/export/scratch2/data/grewal/Data/Projects_JPG_data/MO_DIR/LUMC_cervical_train'
+	# label_output_path = '/export/scratch2/data/grewal/Data/Projects_JPG_data/MO_DIR/LUMC_cervical_train_labels'
 
+	# root_path = '/export/scratch2/data/grewal/Data/Projects_DICOM_data/ThreeD/MRI_brachy_landmarks_annotations'
+	# output_path = '/export/scratch2/data/grewal/Data/Projects_JPG_data/MO_DIR/AMC_cervical_test_annotated'
+	# label_output_path = '/export/scratch2/data/grewal/Data/Projects_JPG_data/MO_DIR/AMC_cervical_test_annotated_labels'
+
+	root_path = '/export/scratch2/data/grewal/Data/Projects_DICOM_data/LUMC_cervical/annotated'
+	output_path = '/export/scratch2/data/grewal/Data/Projects_JPG_data/MO_DIR/LUMC_cervical_test_annotated'
+	label_output_path = '/export/scratch2/data/grewal/Data/Projects_JPG_data/MO_DIR/LUMC_cervical_test_annotated_labels'
+	
 	root_dir = Path(root_path)
 	output_dir = Path(output_path)
 	label_output_dir = Path(label_output_path)
