@@ -210,7 +210,7 @@ def train(mo_optimizer, net_ensemble, criterion, validation_fn, scaler, dataload
                 # logging: val
                 log_iteration_metrics(metrics, cache.iter, writer, data="val", loss_functions=config.LOSS_FUNCTIONS)
                 # visualizing: val pareto front
-                save_os_visualization(metrics["loss"], cache.out_dir_val, config.LOSS_FUNCTIONS)
+                save_os_visualization(metrics["loss"], cache.out_dir_val, cache.iter, config.LOSS_FUNCTIONS)
                 # saving
                 mean_hv = float(np.mean(hv_per_sample))
                 cache.hv = mean_hv

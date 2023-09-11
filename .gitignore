@@ -83,3 +83,5 @@ dmypy.json
 runs/
 outputs/
 output*/
+inputs/
+sanity*/

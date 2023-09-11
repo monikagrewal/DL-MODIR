@@ -116,7 +116,8 @@ def transform_points(pts_in_target, flow, mode='bilinear'):
     normalized_pts_in_target = normalized_pts_in_target.view(b, 1, 1, K, ndims)
     dvf_at_pts = nnf.grid_sample(flow, normalized_pts_in_target, align_corners=True, mode=mode)
     dvf_at_pts = dvf_at_pts.reshape(b, -1, 3)
-    
+
+    # import pdb; pdb.set_trace()
     # transformed points
     transformed_pts = pts_in_target + dvf_at_pts
 

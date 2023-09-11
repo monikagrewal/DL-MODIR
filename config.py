@@ -38,7 +38,7 @@ class Config(BaseSettings):
 	NFOLDS: Optional[int] = 1
 
 	# problem specific
-	PROBLEM_NAME: Literal["modir", "modir3d"] = "modir"
+	PROBLEM_NAME: Literal["mo_regression", "modir", "modir3d", "dtlz", "genmed"] = "modir"
 	MO_OPTIMIZER: Literal["higamo_hv", "linear_scalarization", "pareto_mtl"] = "higamo_hv"
 	MO_OPTIMIZER_PARAMS: Dict = {"beta_one": 0.9, "obj_space_normalize": True}
 	MO_MODE: Literal["mean_loss_over_samples", "loss_per_sample"] = "mean_loss_over_samples"
@@ -64,7 +64,7 @@ class Config(BaseSettings):
 	OPTIMIZER: Literal["SGD", "Adam"] = "Adam"
 	OPTIMIZER_PARAMS: Dict = {}
 	LR: float = 1e-3
-	LR_SCHEDULER: Literal["StepLR"] = "StepLR"
+	LR_SCHEDULER: Literal["StepLR", "CyclicLR"] = "StepLR"
 	LR_SCHEDULER_PARAMS: Dict = {"step_size": 1,"gamma": 1.0}
 	WEIGHT_DECAY: float = 1e-4
 	BATCHSIZE: int = 1
@@ -94,6 +94,7 @@ class Config(BaseSettings):
 class TestConfig(BaseSettings):
 	EXPERIMENT_DIR: str = "./runs/prelim_experiment"
 	VISUALIZE_OUTPUT: Literal["none", "val", "test", "all"] = "none"
+	DATA_PARAMS: Dict = {"root": "/export/scratch2/data/grewal/Data/Projects_JPG_data/MO_DIR/LUMC_cervical_test_annotated"}
 
 
 def get_config(env_file=cli_args.env_file, test_env_file=cli_args.test_env_file):
@@ -140,6 +141,7 @@ def get_config(env_file=cli_args.env_file, test_env_file=cli_args.test_env_file)
 			# modify config according to test settings
 			config.OUT_DIR = test_settings.EXPERIMENT_DIR
 			config.VISUALIZE_OUTPUT = test_settings.VISUALIZE_OUTPUT
+			config.DATA_PARAMS = test_settings.DATA_PARAMS
 			return config
 		else:
 			print("No env_file or out_dir supplied. " "Creating default config.")

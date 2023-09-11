@@ -13,6 +13,7 @@
 #
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#    Exact copy of the code available at https://ls11-www.cs.tu-dortmund.de/rudolph/hypervolume/start 
 
 
 __author__ = "Simon Wessing"

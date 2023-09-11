@@ -21,12 +21,21 @@ from utilities.logging import define_chart_layout
 
 
 def load_problem(mode="train") -> Tuple:
-    if config.PROBLEM_NAME=="modir":
+    if config.PROBLEM_NAME=="mo_regression":
+        logging.debug("Problem name: mo_regression")
+        from problems.mo_regression import data, model, losses, inference
+    elif config.PROBLEM_NAME=="modir":
         logging.debug("Problem name: modir")
         from problems.modir import data, model, losses, inference
     elif config.PROBLEM_NAME=="modir3d":
         logging.debug("Problem name: modir3d")
         from problems.modir3d import data, model, losses, inference
+    elif config.PROBLEM_NAME=="dtlz":
+        logging.debug("Problem name: dtlz")
+        from problems.DTLZ import data, model, losses, inference
+    elif config.PROBLEM_NAME=="genmed":
+        logging.debug("Problem name: genmed")
+        from problems.genmed import data, model, losses, inference
     else:
         raise ValueError(f"PROBLEM_NAME = {config.PROBLEM_NAME} not identified.")
     
@@ -164,6 +173,8 @@ def get_lr_scheduler() -> Callable:
         scheduler = optim.lr_scheduler.StepLR
     elif config.LR_SCHEDULER == "MultiStepLR":
         scheduler = optim.lr_scheduler.MultiStepLR
+    elif config.LR_SCHEDULER == "CyclicLR":
+        scheduler = optim.lr_scheduler.CyclicLR
     else:
         raise ValueError(f"Unknown lr scheduler: {config.LR_SCHEDULER}")
     return scheduler
