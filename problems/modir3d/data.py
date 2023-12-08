@@ -45,13 +45,13 @@ if __name__ == '__main__':
     # csv_path = '/export/scratch2/data/grewal/DL-MODIR/data_preparation/meta/mri_dataset_train_pairs.csv'
     # amc_brachy.preprocess_modir_data(root, csv_path)
 
-    root = '/export/scratch2/data/grewal/Data/Projects_JPG_data/MO_DIR/LUMC_cervical_train'
-    csv_path = '/export/scratch2/data/grewal/DL-MODIR/data_preparation/meta/LUMC_cervical_train_pairs.csv'
-    amc_brachy.preprocess_modir_data(root, csv_path, output_spacing=(1, 1, 1), output_foldername="preprocessed111", output_size="image")
+    # root = '/export/scratch2/data/grewal/Data/Projects_JPG_data/MO_DIR/LUMC_cervical_train'
+    # csv_path = '/export/scratch2/data/grewal/DL-MODIR/data_preparation/meta/LUMC_cervical_train_pairs.csv'
+    # amc_brachy.preprocess_modir_data(root, csv_path, output_spacing=(1, 1, 1), output_foldername="preprocessed111", output_size="image")
 
-    # root = '/export/scratch2/data/grewal/Data/Projects_JPG_data/MO_DIR/LUMC_cervical_test_annotated'
-    # csv_path = '/export/scratch2/data/grewal/DL-MODIR/data_preparation/meta/LUMC_cervical_test_pairs.csv'
-    # amc_brachy.preprocess_modir_data(root, csv_path, output_spacing=(1, 1, 4), output_size="image")
+    root = '/export/scratch2/data/grewal/Data/Projects_JPG_data/MO_DIR/LUMC_cervical_test_annotated'
+    csv_path = '/export/scratch2/data/grewal/DL-MODIR/data_preparation/meta/LUMC_cervical_test_pairs.csv'
+    amc_brachy.preprocess_modir_data(root, csv_path, output_spacing=(1, 1, 1), output_foldername="preprocessed111", load_pts=True, output_size="image")
 
     # root = '/export/scratch2/data/grewal/Data/Projects_JPG_data/MO_DIR/LUMC_cervical_test_annotated'
     # dataset = amc_brachy.AMCBrachy(root=root)

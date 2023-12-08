@@ -36,6 +36,9 @@ def load_problem(mode="train") -> Tuple:
     elif config.PROBLEM_NAME=="genmed":
         logging.debug("Problem name: genmed")
         from problems.genmed import data, model, losses, inference
+    elif config.PROBLEM_NAME=="zdt":
+        logging.debug("Problem name: zdt")
+        from problems.ZDT import data, model, losses, inference
     else:
         raise ValueError(f"PROBLEM_NAME = {config.PROBLEM_NAME} not identified.")
     

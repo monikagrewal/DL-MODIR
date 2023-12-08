@@ -3,6 +3,7 @@ import cv2
 import torch
 import numpy as np
 import matplotlib
+from scipy.ndimage import median_filter
 import logging
 
 
@@ -72,87 +73,64 @@ def seg_to_im(seg:np.array, num_classes:int=5, text:str="") -> np.array:
     return seg_im
 
 
-def convert_points_to_image(samp_pts, d, H, W):
-    """
-    Inputs:-
-    samp_pts: b, 1, 1, k, 3
-    """
+def calculate_percent_folding(deformation_field, spacing=(1,1,1)):
+	"""
+	Calculate the determinant of the Jacobian matrix for a deformation vector field.
+	and then percent folding
 
-    b, _, _, K, _ = samp_pts.shape
-    # Convert pytorch -> numpy.
-    samp_pts = samp_pts.data.cpu().numpy().reshape(b, K, 3)
-    samp_pts = (samp_pts + 1.) / 2.
-    samp_pts = np.round(samp_pts * np.array([float(W-1), float(H-1), float(d-1)]).reshape(1, 1, 3), 0)
-    return samp_pts.astype(np.int32)
+	Parameters:
+	deformation_field (numpy.ndarray): A 3D array representing the deformation vector field.
+										Each element is a 3D vector representing the displacement at a point.
+										
+	Returns:
+	determinant (numpy.ndarray): A 2D array containing the determinants of the Jacobian matrices for each point.
+
+	det([ (1.0+dx/dx) dx/dy dx/dz ; dy/dx (1.0+dy/dy) dy/dz; dz/dx dz/dy (1.0+dz/dz) ])
+	information from https://simpleitk.org/doxygen/latest/html/classitk_1_1simple_1_1DisplacementFieldJacobianDeterminantFilter.html
+
+	"""
+	shape = deformation_field.shape
+	if len(shape) != 4 or shape[-1] != 3:
+		raise ValueError("Invalid deformation field shape. Expected (Z, Y, X, 3).")
+
+	deformation_field = deformation_field * np.array(spacing).reshape(1,1,1,3)
+	deformation_grad0 = np.gradient(deformation_field[...,0], *spacing)
+	deformation_grad1 = np.gradient(deformation_field[...,1], *spacing)
+	deformation_grad2 = np.gradient(deformation_field[...,2], *spacing)
+	deformation_grad0[0] += 1
+	deformation_grad1[1] += 1
+	deformation_grad2[2] += 1
+
+	A1 = deformation_grad0[0]
+	A1_cofactor = deformation_grad1[1] * deformation_grad2[2] - deformation_grad2[1] * deformation_grad1[2]
+	A2 = deformation_grad0[1]
+	A2_cofactor = (-1) * ( deformation_grad1[0] * deformation_grad2[2] - deformation_grad2[0] * deformation_grad1[2] )
+	A3 = deformation_grad0[2]
+	A3_cofactor = deformation_grad1[0] * deformation_grad2[1] - deformation_grad2[0] * deformation_grad1[1]
+
+	determinant = A1 * A1_cofactor +\
+				A2 * A2_cofactor +\
+				A3 * A3_cofactor
+
+	number_folding = (determinant < 0).sum()
+	total_voxels = np.prod(shape)
+	percent_folding = number_folding * 100 / float(total_voxels)
+	return percent_folding
 
 
-def convert_points_to_torch(pts, d, H, W, device="cuda:0"):
-    """
-    Inputs:-
-    pts: k, 3 (W, H, d)
-    """
-
-    samp_pts = torch.from_numpy(pts.astype(np.float32))
-    samp_pts[:, 0] = (samp_pts[:, 0] * 2. / (W-1)) - 1.
-    samp_pts[:, 1] = (samp_pts[:, 1] * 2. / (H-1)) - 1.
-    samp_pts[:, 2] = (samp_pts[:, 2] * 2. / (d-1)) - 1.
-    samp_pts = samp_pts.view(1, 1, 1, -1, 3)
-    samp_pts = samp_pts.float().to(device)
-    return samp_pts
-
-
-def calculate_determinant_of_jacobian(self, deformation_field:np.array):
-    """
-    Calculate the determinant of the Jacobian matrix for a deformation vector field.
-    
-    Parameters:
-    deformation_field (numpy.ndarray): A 3D array representing the deformation vector field.
-                                    Each element is a 3D vector representing the displacement at a point.
-                                    
-    Returns:
-    determinant (numpy.ndarray): A 3D array containing the determinants of the Jacobian matrices for each point.
-    """
-    shape = deformation_field.shape
-    if len(shape) != 4 or shape[-1] != 3:
-        raise ValueError("Invalid deformation field shape. Expected (X, Y, Z, 3).")
-    
-    deformation_grad = np.gradient(deformation_field, axis=(0, 1, 2))
-    
-    determinant = np.zeros((shape[0], shape[1], shape[2]))
-    for i in range(shape[0]):
-        for j in range(shape[1]):
-            for k in range(shape[2]):
-                jac_matrix = np.array([[deformation_grad[0][i,j,k,0], deformation_grad[0][i,j,k,1], deformation_grad[0][i,j,k,2]],
-                                    [deformation_grad[1][i,j,k,0], deformation_grad[1][i,j,k,1], deformation_grad[1][i,j,k,2]],
-                                    [deformation_grad[2][i,j,k,0], deformation_grad[2][i,j,k,1], deformation_grad[2][i,j,k,2]]])
-                determinant[i, j, k] = np.linalg.det(jac_matrix)
-    
-    return determinant
+def postprocess_dvf(dvf):
+	smooth_dvf = np.zeros_like(dvf)
+	for i in range(dvf.shape[3]):
+		smooth_dvf[..., i] = median_filter(dvf[..., i], size=(1,3,3))
+	return smooth_dvf
     
 
-def calculate_tre(self, points_in_target, points_in_source, deformation_field:np.array):
-    #TODO: change to torch
-    """
-    Calculate the TRE
-    
-    Parameters:
-    deformation_field (numpy.ndarray): TODO
-                                    
-    Returns:
-    determinant (numpy.ndarray): TODO
-    """
-    shape = deformation_field.shape
-    if len(shape) != 4 or shape[-1] != 3:
-        raise ValueError("Invalid deformation field shape. Expected (X, Y, Z, 3).")
-    
-    pts2_torch = convert_points_to_torch(np.array(pts2_pred), *shape, device=device)   #1, 1, 1, k, 3
-
-    deformation_torch = torch.from_numpy(deformation).to(device).permute(0, 4, 1, 2, 3)  #b, 3, d, h, w
-    pts1_actual = F.grid_sample(deformation_torch, pts2_torch) #b, 3, 1, 1, k
-    pts1_actual = pts1_actual.permute(0, 2, 3, 4, 1) #b, 1, 1, k, 3
-    pts1_actual = convert_points_to_image(pts1_actual, *shape)
-    pts1_actual = pts1_actual.reshape(-1, 3)
-    
+def calculate_tre(transformed_pts, source_pts, spacing=(1, 1, 1)):
+    transformed_pts = transformed_pts.reshape(-1, 3)
+    source_pts = source_pts.reshape(-1, 3)
+    spacing = np.array(spacing).reshape(1, 3)
+    dist = transformed_pts*spacing - source_pts*spacing
+    tre = np.linalg.norm(dist, axis=1)
     return tre
 
 
@@ -164,10 +142,3 @@ def calculate_jac_analytics(detOfJacobian):
 					"less_than_0": float(less_than_0),
 					"more_than_2": float(more_than_2)}
 	return jac_analytics
-
-
-def target_registration_errors(pts1, pts2, spacing1=(1, 1, 1), spacing2=(1, 1, 1)):
-	pts1_mm = np.array(pts1) * np.array(spacing1).reshape(1, -1)
-	pts2_mm = np.array(pts2) * np.array(spacing2).reshape(1, -1)
-	errors = np.linalg.norm(pts1_mm -  pts2_mm, axis=1)
-	return errors.tolist()

@@ -318,7 +318,7 @@ def checkDomination(objValA,objValArray):
     dominates = ( np.any(objValA < objValArray, axis = 0) & np.all(objValA <= objValArray , axis = 0) )
     return(dominates)
 
-def compute_hv_in_higher_dimensions(mo_obj_val,ref_point):
+def compute_hv_in_higher_dimensions(mo_obj_val, ref_point):
     n_mo_obj = mo_obj_val.shape[0]
     n_mo_sol = mo_obj_val.shape[1]
     assert len(ref_point) == n_mo_obj

@@ -94,7 +94,7 @@ def arr_resample_voxel_spacing(arr, original_spacing, required_spacing, order=1)
     return arr
 
 
-def preprocess_modir_data(root, csv_path, output_foldername="preprocessed", output_spacing=(1, 1, 3), output_size="image"):
+def preprocess_modir_data(root, csv_path, output_foldername="preprocessed", output_spacing=(1, 1, 3), output_size="image", load_pts=False):
     output_path = os.path.join(root, output_foldername)
     os.makedirs(output_path, exist_ok=True)
 
@@ -125,21 +125,22 @@ def preprocess_modir_data(root, csv_path, output_foldername="preprocessed", outp
         print(f"Original sizes: fixed image = {fixed_image.GetSize()}, moving image = {moving_image.GetSize()}")
 
 
-        # # generate pts_list from annotations and convert to mm
-        # fixed_pts, fixed_pts_names = generate_pts_list(fixed_annotations, fixed_meta)
-        # moving_pts, moving_pts_names = generate_pts_list(moving_annotations, moving_meta)
+        if load_pts:
+            # generate pts_list from annotations and convert to mm
+            fixed_pts, fixed_pts_names = generate_pts_list(fixed_annotations, fixed_meta)
+            moving_pts, moving_pts_names = generate_pts_list(moving_annotations, moving_meta)
 
-        # # make sure both images have same number of landmarks
-        # common_names = list(set(fixed_pts_names) & set(moving_pts_names))
-        # if len(common_names) != len(fixed_pts_names) or \
-        #     len(common_names) != len(moving_pts_names):
-        #     fixed_pts = [pts for i, pts in enumerate(fixed_pts) if fixed_pts_names[i] in common_names]
-        #     moving_pts = [pts for i, pts in enumerate(moving_pts) if moving_pts_names[i] in common_names]
-        #     fixed_pts_names = [name for name in fixed_pts_names if name in common_names]
-        #     moving_pts_names = [name for name in moving_pts_names if name in common_names]
+            # make sure both images have same number of landmarks
+            common_names = list(set(fixed_pts_names) & set(moving_pts_names))
+            if len(common_names) != len(fixed_pts_names) or \
+                len(common_names) != len(moving_pts_names):
+                fixed_pts = [pts for i, pts in enumerate(fixed_pts) if fixed_pts_names[i] in common_names]
+                moving_pts = [pts for i, pts in enumerate(moving_pts) if moving_pts_names[i] in common_names]
+                fixed_pts_names = [name for name in fixed_pts_names if name in common_names]
+                moving_pts_names = [name for name in moving_pts_names if name in common_names]
 
-        # fixed_pts_physical = [fixed_image.TransformContinuousIndexToPhysicalPoint(p) for p in fixed_pts]
-        # moving_pts_physical = [moving_image.TransformContinuousIndexToPhysicalPoint(p) for p in moving_pts]
+            fixed_pts_physical = [fixed_image.TransformContinuousIndexToPhysicalPoint(p) for p in fixed_pts]
+            moving_pts_physical = [moving_image.TransformContinuousIndexToPhysicalPoint(p) for p in moving_pts]
 
         # load annotations and generate mask
         fixed_label = generate_mask(fixed_annotations, fixed_meta, fixed_image)
@@ -156,9 +157,11 @@ def preprocess_modir_data(root, csv_path, output_foldername="preprocessed", outp
                                               output_spacing=output_spacing,
                                               output_size=output_size,
                                               interpolator='nearest')
-        # # convert pts to new voxel spacing
-        # fixed_pts = [fixed_image.TransformPhysicalPointToContinuousIndex(p) for p in fixed_pts_physical]
-        # moving_pts = [moving_image.TransformPhysicalPointToContinuousIndex(p) for p in moving_pts_physical]
+        
+        if load_pts:
+            # convert pts to new voxel spacing
+            fixed_pts = [fixed_image.TransformPhysicalPointToContinuousIndex(p) for p in fixed_pts_physical]
+            moving_pts = [moving_image.TransformPhysicalPointToContinuousIndex(p) for p in moving_pts_physical]
 
         print(f"Resampled spacings: fixed image = {fixed_image.GetSpacing()}, moving image = {moving_image.GetSpacing()}")
         print(f"Resampled sizes: fixed image = {fixed_image.GetSize()}, moving image = {moving_image.GetSize()}")
@@ -168,36 +171,34 @@ def preprocess_modir_data(root, csv_path, output_foldername="preprocessed", outp
             moving_image_aligned, status, outTx = rigid_registration(fixed_image, moving_image)
         except Exception as e:
             logging.warning(e)
-            status = False
-            continue
-            # if "The images do not sufficiently overlap" in str(e) and \
-            #                                     len(fixed_pts)>0:
-            #     fixed_pts_physical = [fixed_image.TransformContinuousIndexToPhysicalPoint(p) for p in fixed_pts]
-            #     moving_pts_physical = [moving_image.TransformContinuousIndexToPhysicalPoint(p) for p in moving_pts]
-            #     fixed_pts_flat = [c for p in fixed_pts_physical for c in p]        
-            #     moving_pts_flat = [c for p in moving_pts_physical for c in p]
-            #     initial_transform = sitk.LandmarkBasedTransformInitializer(sitk.VersorRigid3DTransform(), 
-            #                                                                     fixed_pts_flat, 
-            #                                                                     moving_pts_flat)
-            #     moving_image_aligned, status, outTx = rigid_registration(fixed_image, moving_image, initialTx=initial_transform)
-            # else:
-            #     import pdb; pdb.set_trace()
-            #     status = False
-            #     continue
+            if "The images do not sufficiently overlap" in str(e):
+                if load_pts and len(fixed_pts)>0:
+                    fixed_pts_physical = [fixed_image.TransformContinuousIndexToPhysicalPoint(p) for p in fixed_pts]
+                    moving_pts_physical = [moving_image.TransformContinuousIndexToPhysicalPoint(p) for p in moving_pts]
+                    fixed_pts_flat = [c for p in fixed_pts_physical for c in p]        
+                    moving_pts_flat = [c for p in moving_pts_physical for c in p]
+                    initial_transform = sitk.LandmarkBasedTransformInitializer(sitk.VersorRigid3DTransform(), 
+                                                                                    fixed_pts_flat, 
+                                                                                    moving_pts_flat)
+                    moving_image_aligned, status, outTx = rigid_registration(fixed_image, moving_image, initialTx=initial_transform)
+            else:
+                import pdb; pdb.set_trace()
+                status = False
+                continue
 
         if status:
             print("Sizes: Fixed image: {}, Moving image: {} --> {}".format(fixed_image.GetSize(),\
                                 moving_image.GetSize(), moving_image_aligned.GetSize()))
             moving_label_aligned = resample_image(moving_label, fixed_image, outTx, interpolator='nearest')
             
-            # if len(fixed_pts)>0:
-            #     inverseTx = outTx.GetInverse()
-            #     moving_pts_physical = [moving_image.TransformContinuousIndexToPhysicalPoint(p) for p in moving_pts]
-            #     moving_pts_physical_transformed = [inverseTx.TransformPoint(p) for p in moving_pts_physical]
-            #     moving_pts_transformed = [fixed_image.TransformPhysicalPointToContinuousIndex(p) for p in \
-            #                              moving_pts_physical_transformed]
-            # else:
-            #     moving_pts_transformed = []
+            if load_pts and len(fixed_pts)>0:
+                inverseTx = outTx.GetInverse()
+                moving_pts_physical = [moving_image.TransformContinuousIndexToPhysicalPoint(p) for p in moving_pts]
+                moving_pts_physical_transformed = [inverseTx.TransformPoint(p) for p in moving_pts_physical]
+                moving_pts_transformed = [fixed_image.TransformPhysicalPointToContinuousIndex(p) for p in \
+                                         moving_pts_physical_transformed]
+            else:
+                moving_pts_transformed = []
 
             img1 = sitk.GetArrayFromImage(fixed_image)
             img2 = sitk.GetArrayFromImage(moving_image_aligned)
@@ -217,17 +218,18 @@ def preprocess_modir_data(root, csv_path, output_foldername="preprocessed", outp
             np.save(os.path.join(output_path, filename), img1)
             filename = "{0:03d}_Fixed_label".format(i)
             np.save(os.path.join(output_path, filename), fixed_label)
-            # filename = "{0:03d}_Fixed_points.json".format(i)
-            # obj = {"pts": fixed_pts, "names": fixed_pts_names}
-            # json.dump(obj, open(os.path.join(output_path, filename), "w"))
 
             filename = "{0:03d}_Moving".format(i)
             np.save(os.path.join(output_path, filename), img2)
             filename = "{0:03d}_Moving_label".format(i)
             np.save(os.path.join(output_path, filename), moving_label)
-            # filename = "{0:03d}_Moving_points.json".format(i)
-            # obj = {"pts": moving_pts_transformed, "names": moving_pts_names}
-            # json.dump(obj, open(os.path.join(output_path, filename), "w"))
+            if load_pts:
+                filename = "{0:03d}_Fixed_points.json".format(i)
+                obj = {"pts": fixed_pts, "names": fixed_pts_names}
+                json.dump(obj, open(os.path.join(output_path, filename), "w"))
+                filename = "{0:03d}_Moving_points.json".format(i)
+                obj = {"pts": moving_pts_transformed, "names": moving_pts_names}
+                json.dump(obj, open(os.path.join(output_path, filename), "w"))
 
 
 def embed_seg(x: torch.Tensor, xs: torch.Tensor):
@@ -248,8 +250,8 @@ class AMCBrachy():
     Brachytherapy MRI data
     """
     def __init__(self, root, train=True, use_segmentation=True, max_depth=32, num_classes=5, inplane_size=192, 
-                 classes_to_include=[0,1,2,3,4], load_pts=False):
-        self.root = os.path.join(root, "preprocessed")
+                 classes_to_include=[0,1,2,3,4], load_pts=False, processed_foldername="preprocessed"):
+        self.root = os.path.join(root, processed_foldername)
         self.data = glob.glob(self.root + "/*_Fixed.npy")
         self.data.sort()
 
@@ -258,10 +260,11 @@ class AMCBrachy():
         #         and 107: bladder segmentation missing in some slices
         # For details, check data_preparation/meta/LUMC_cervical_train_pairs_annotation.csv
         # -----------------------------------------------------------
-        filename_to_remove = glob.glob(self.root + "/088_Fixed.npy") +\
-                            glob.glob(self.root + "/107_Fixed.npy*")
-        for filename in filename_to_remove:
-            self.data.remove(filename)
+        if train:
+            filename_to_remove = glob.glob(self.root + "/088_Fixed.npy") +\
+                                glob.glob(self.root + "/107_Fixed.npy*")
+            for filename in filename_to_remove:
+                self.data.remove(filename)
 
         self.max_depth = max_depth
         self.inplane_size = inplane_size

@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as nnf
+import logging
 
 
 class SpatialTransformer(nn.Module):
@@ -104,21 +105,35 @@ def transform_points(pts_in_target, flow, mode='bilinear'):
 
     Note: pts is x, y, z but flow is z, y, x
     '''
-    flow = flow[:, [2, 1, 0], ...] # now x, y, z
+    # create sampling grid
+    size = flow.shape[2:]
+    vectors = [torch.arange(0, s) for s in size]
+    grids = torch.meshgrid(vectors, indexing="ij")
+    grid = torch.stack(grids)
+    grid = torch.unsqueeze(grid, 0)
+    grid = grid.type(torch.FloatTensor).to(flow.device)
+
+    # new locations
+    new_locs = grid + flow
+    shape = flow.shape[2:]
+
+    # also not sure why, but the channels need to be reversed
+    if len(shape) == 2:
+        new_locs = new_locs[:, [1, 0], ...]
+    elif len(shape) == 3:
+        new_locs = new_locs[:, [2, 1, 0], ...]
+
     shape = flow.shape[2:][::-1]  # now w, h, d
     # need to normalize pts values to [-1, 1] for resampler
     normalized_pts_in_target = torch.ones_like(pts_in_target.float())
     for i in range(len(shape)):
         normalized_pts_in_target[:, :, i] = 2 * (pts_in_target[:, :, i] / (shape[i] - 1) - 0.5)
 
-    # deformation at points
+    # deformed points
     b, K, ndims = normalized_pts_in_target.shape
     normalized_pts_in_target = normalized_pts_in_target.view(b, 1, 1, K, ndims)
-    dvf_at_pts = nnf.grid_sample(flow, normalized_pts_in_target, align_corners=True, mode=mode)
-    dvf_at_pts = dvf_at_pts.reshape(b, -1, 3)
-
-    # import pdb; pdb.set_trace()
-    # transformed points
-    transformed_pts = pts_in_target + dvf_at_pts
+    transformed_pts = nnf.grid_sample(new_locs, normalized_pts_in_target, align_corners=True, mode='nearest') #b,ndims,1,1,K
+    transformed_pts = transformed_pts.permute(0,2,3,4,1)
+    transformed_pts = transformed_pts.reshape(b, -1, ndims)
 
     return transformed_pts
