@@ -1,0 +1,26 @@
+# See possible parameters in config.py, only add the parameters that differ from default.
+DEBUG = False
+EXPERIMENT_NAME = "prelim_experiments/hv_unet_khead_vm_learning"
+PROBLEM_NAME = "modir3d"
+DATASET = "AMCBrachy"
+DATA_PARAMS = {"root":"/export/scratch2/data/grewal/Data/Projects_JPG_data/MO_DIR/LUMC_cervical_train", "use_segmentation":"true"}
+
+MO_MODE = "mean_loss_over_samples"
+MO_OPTIMIZER = "higamo_hv"
+MO_OPTIMIZER_PARAMS = {"beta_one":0.9, "obj_space_normalize":"true", "adaptive_constraint":"false"}
+N_MO_SOL = 10
+ENSEMBLE_TYPE = "khead"
+
+MODEL_NAME = "MOVoxelMorph"
+MODEL_PARAMS = {"int_downsize":1, "int_steps":0, "use_segmentation":"true", "nb_unet_features": [[8, 16, 16, 32, 32, 64], [64, 128, 64, 64, 32, 32, 16, 16]], "nb_unet_conv_per_level":2, "convblock_type":"unet"}
+LOSS_FUNCTIONS = ["NCCLoss", "SpatialGradientLoss3D", "SegSimilarityLoss"]
+REF_POINT = [10, 10, 10]
+
+BATCHSIZE = 1
+LEARNING_ITERATIONS = 150000
+VALIDATION_FREQUENCY = 1000
+LR = 0.0001
+LR_SCHEDULER_PARAMS = {"step_size": 3300,"gamma": 1}
+
+VISUALIZE_OUTPUT = "val"
+SAVE_MODEL = "best"

@@ -1,0 +1,30 @@
+# See possible parameters in config.py, only add the parameters that differ from default.
+DEBUG = False
+EXPERIMENT_NAME = "bug_fixing2/zdt5_raw_ref31_10"
+PROBLEM_NAME = "zdt"
+DATASET = "TrigonometricDataset"
+DATA_PARAMS = {"n_samples":5, "n_targets":2, "cycles":1}
+NFOLDS = 1
+
+MO_MODE = "mean_loss_over_samples"
+MO_OPTIMIZER = "higamo_hv"
+MO_OPTIMIZER_PARAMS = {"beta_one":0, "obj_space_normalize":"false", "weighted_hypervolume":"false", "gamma":[5, 0], "loss_space_normalize":"false", "normalized_loss":[0, 1], "lb_obj":[1, 0.322581], "ub_obj":[31, 10]}
+N_MO_SOL = 40
+ENSEMBLE_TYPE = "deep"
+
+MODEL_NAME = "Net"
+MODEL_PARAMS = {"n_var":80}
+LOSS_FUNCTIONS = ["f1", "f2"]
+REF_POINT = [31, 10]
+
+BATCHSIZE = 1
+LEARNING_ITERATIONS = 10000
+VALIDATION_FREQUENCY = 100
+LR = 0.01
+OPTIMIZER = "Adam"
+OPTIMIZER_PARAMS = {}
+LR_SCHEDULER = "StepLR"
+LR_SCHEDULER_PARAMS = {"step_size":10000, "gamma":0.1}
+
+VISUALIZE_OUTPUT = "val"
+SAVE_MODEL = "none"

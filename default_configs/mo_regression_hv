@@ -1,0 +1,26 @@
+# See possible parameters in config.py, only add the parameters that differ from default.
+DEBUG = False
+EXPERIMENT_NAME = "mo_regression_try"
+PROBLEM_NAME = "mo_regression"
+DATASET = "TrigonometricDataset"
+DATA_PARAMS = {"n_samples":400, "n_targets":2, "cycles":1}
+
+MO_MODE = "mean_loss_over_samples"
+MO_OPTIMIZER = "higamo_hv"
+MO_OPTIMIZER_PARAMS = {"beta_one":0, "obj_space_normalize":"true"}
+N_MO_SOL = 12
+ENSEMBLE_TYPE = "deep"
+
+MODEL_NAME = "Net"
+MODEL_PARAMS = {}
+LOSS_FUNCTIONS = ["MSELoss", "MSELoss"]
+REF_POINT = [10, 10]
+
+BATCHSIZE = 10
+LEARNING_ITERATIONS = 1000
+VALIDATION_FREQUENCY = 100
+LR = 0.001
+LR_SCHEDULER_PARAMS = {"step_size": 3300,"gamma": 1}
+
+VISUALIZE_OUTPUT = "val"
+SAVE_MODEL = "none"

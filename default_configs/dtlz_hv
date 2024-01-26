@@ -1,0 +1,30 @@
+# See possible parameters in config.py, only add the parameters that differ from default.
+DEBUG = False
+EXPERIMENT_NAME = "bug_fixing/dtlz2_obj2"
+PROBLEM_NAME = "dtlz"
+DATASET = "TrigonometricDataset"
+DATA_PARAMS = {"n_samples":5, "n_targets":3, "cycles":1}
+NFOLDS = 1
+
+MO_MODE = "mean_loss_over_samples"
+MO_OPTIMIZER = "higamo_hv"
+MO_OPTIMIZER_PARAMS = {"beta_one":0, "obj_space_normalize":"true"}
+N_MO_SOL = 40
+ENSEMBLE_TYPE = "deep"
+
+MODEL_NAME = "Net"
+MODEL_PARAMS = {"n_var":2}
+LOSS_FUNCTIONS = ["f1", "f2"]
+REF_POINT = [1.1, 1.1]
+
+BATCHSIZE = 1
+LEARNING_ITERATIONS = 1000
+VALIDATION_FREQUENCY = 10
+LR = 0.05
+OPTIMIZER = "Adam"
+OPTIMIZER_PARAMS = {}
+LR_SCHEDULER = "StepLR"
+LR_SCHEDULER_PARAMS = {"step_size":10000, "gamma":0.1}
+
+VISUALIZE_OUTPUT = "val"
+SAVE_MODEL = "none"
