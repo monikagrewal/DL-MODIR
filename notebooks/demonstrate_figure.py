@@ -208,5 +208,5 @@ rects = [plt.Rectangle((2006, 86), 452, 1004, facecolor="none", linewidth=3,
             ]
 fig.patches.extend(rects)
 
-fig.savefig("../outputs/demonstrate_try.png")
+# fig.savefig("../outputs/demonstrate_try.png")
 # plt.show()

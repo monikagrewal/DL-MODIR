@@ -1,14 +1,16 @@
 # See possible parameters in config.py, only add the parameters that differ from default.
 DEBUG = False
-EXPERIMENT_NAME = "nsol25/ls_3obj_sigma1"
+NFOLDS = 5
+RANDOM_SEED = 20240127
+EXPERIMENT_NAME = "final_experiments/ls_3obj"
 PROBLEM_NAME = "modir3d"
 DATASET = "AMCBrachy"
 DATA_PARAMS = {"root":"/export/scratch2/data/grewal/Data/Projects_JPG_data/MO_DIR/LUMC_cervical_train", "use_segmentation":"true", "processed_foldername":"preprocessed111"}
 
 MO_MODE = "mean_loss_over_samples"
 MO_OPTIMIZER = "linear_scalarization"
-MO_OPTIMIZER_PARAMS = {"weights":[[0,0,1],[0,0.5,1],[0,1,0.5],[0,1,1],[0.5,0,1],[0.5,0.5,1],[0.5,1,0],[0.5,1,0.5],[0.5,1,1],[1,0,0],[1,0,0.5],[1,0,1],[1,0.5,0],[1,0.5,0.5],[1,0.5,1],[1,1,0],[1,1,0.5],[1,1,1],[1,0.1,0.1],[1,0.1,0],[1,0,0.1],[1,0.5,0.1],[1,0.1,0.5]]}
-N_MO_SOL = 23
+MO_OPTIMIZER_PARAMS = {"weights":[[0, 0, 1], [0, 0.1, 0.5], [0, 0.1, 1], [0, 0.5, 1], [0, 1, 0], [0, 1, 0.5], [0, 1, 1], [0.5, 0, 1], [0.5, 0.1, 0], [0.5, 0.1, 0.5], [0.5, 0.1, 1], [0.5, 0.5, 1], [0.5, 1, 0], [0.5, 1, 0.5], [0.5, 1, 1], [1, 0, 0], [1, 0, 0.5], [1, 0, 1], [1, 0.1, 0], [1, 0.1, 0.5], [1, 0.1, 1], [1, 0.5, 0], [1, 0.5, 0.5], [1, 0.5, 1], [1, 1, 0], [1, 1, 0.5], [1, 1, 1]]}
+N_MO_SOL = 27
 ENSEMBLE_TYPE = "khead"
 
 MODEL_NAME = "MOVoxelMorph"
@@ -17,10 +19,10 @@ LOSS_FUNCTIONS = ["NCCLoss", "SpatialGradientLoss3D", "SegSimilarityLoss"]
 REF_POINT = [1, 1, 1]
 
 BATCHSIZE = 1
-LEARNING_ITERATIONS = 150000
-VALIDATION_FREQUENCY = 1000
+LEARNING_ITERATIONS = 50000
+VALIDATION_FREQUENCY = 10000
 LR = 0.0001
 LR_SCHEDULER_PARAMS = {"step_size": 3300,"gamma": 1}
 
 VISUALIZE_OUTPUT = "val"
-SAVE_MODEL = "best"
+SAVE_MODEL = "final"
