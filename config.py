@@ -39,7 +39,7 @@ class Config(BaseSettings):
 
 	# problem specific
 	PROBLEM_NAME: Literal["mo_regression", "modir", "modir3d", "dtlz", "genmed", "zdt"] = "modir"
-	MO_OPTIMIZER: Literal["higamo_hv", "linear_scalarization", "pareto_mtl"] = "higamo_hv"
+	MO_OPTIMIZER: Literal["higamo_hv", "linear_scalarization"] = "higamo_hv"
 	MO_OPTIMIZER_PARAMS: Dict = {"beta_one": 0.9, "obj_space_normalize": True}
 	MO_MODE: Literal["mean_loss_over_samples", "loss_per_sample"] = "mean_loss_over_samples"
 	N_MO_SOL: int = 5
