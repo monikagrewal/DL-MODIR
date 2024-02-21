@@ -49,7 +49,22 @@ def validation(ensemble_class, validation_dataloader, criterion, cache, visualiz
                 outs.append(out[0].data.cpu().numpy())
 
         if visualize:
-            pass
+            img1, img2 = inputs[0].numpy(), inputs[1].numpy()
+            # sorting outs for visualization
+            losses = [item[-1] for item in loss_per_sample_list]
+            losses = np.array(losses) #nsol * nobj * nsample
+            sort_indices = [np.argsort(losses[:, 0, i]) for i in range(losses.shape[2])]
+
+            batchsize = img1.shape[0]
+            for i in range(batchsize):
+                outs_i = [item[i, 0, :, :] for item in outs]
+                outs_i = [outs_i[idx] for idx in sort_indices[i]] #sort outs_i acc to sort indices
+                im1 = img1[i, 0, :, :]
+                im2 = img2[i, 0, :, :]
+                ims = [im1] + outs_i + [im2]
+                img = np.concatenate(ims, axis=1)
+                img = (img*255).astype(np.uint8)
+                cv2.imwrite(os.path.join(cache.out_dir_val, "epoch{}_im{}.jpg".format(cache.epoch, batch_no*batchsize + i)), img)
 
 
     loss_per_sample = [np.concatenate(arr_list, axis=1) for arr_list in  loss_per_sample_list] #list of obj * samples

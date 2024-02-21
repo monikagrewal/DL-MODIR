@@ -1,12 +1,24 @@
 # See possible parameters in config.py, only add the parameters that differ from default.
-DEBUG = True
+DEBUG = False
 EXPERIMENT_NAME="test_modir2d"
 PROBLEM_NAME="modir"
 DATASET = "MNIST_DIR"
 
+MO_MODE = "mean_loss_over_samples"
+MO_OPTIMIZER = "higamo_hv"
+MO_OPTIMIZER_PARAMS = {"beta_one":0, "obj_space_normalize":"true", "weighted_hypervolume":"false", "gamma":[5,0,0], "loss_space_normalize":"false", "normalized_loss":[2], "ub_obj":[0.2]}
+N_MO_SOL = 5
+ENSEMBLE_TYPE = "deep"
+
 MODEL="Net"
-# MODEL_PARAMS={"depth":4, "width":64, "teacher_weights_path": "/export/scratch3/grewal/OAR_segmentation/runs/uncertainty-weighted-example-mining/khead_unet_imagedepth16_18052022_162149/fold0/run0/weights/best_model.pth"}
 LOSS_FUNCTIONS=["NCCLoss", "TransformationLoss"]
+REF_POINT = [1, 1]
+
+BATCHSIZE = 5
+LEARNING_ITERATIONS = 5000
+VALIDATION_FREQUENCY = 100
+LR = 0.0001
+LR_SCHEDULER_PARAMS = {"step_size": 3300,"gamma": 1}
 
 VISUALIZE_OUTPUT = "val"
 SAVE_MODEL = "best"

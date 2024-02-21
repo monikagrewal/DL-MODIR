@@ -55,7 +55,13 @@ To train MO DIR using this model, run the following:
 
 `CUDA_VISIBLE_DEVICES=0 python -m main --env-file ./default_configs/modir3d_hv_mo_voxelmorph`
 
-Also, check out other default configs to run different problems. Alternatively, create a new config file where specific variables are modified.
+Also, check out other default configs to run different problems. For example,
+
+Run the following to train MO DIR on MNIST dataset:
+`CUDA_VISIBLE_DEVICES=0 python -m main --env-file ./default_configs/modir2d`
+
+
+Alternatively, you may create a new config file where specific variables are modified.
 
 *Note: Training will create an output folder structure in `runs` folder based on the variable `EXPERIMENT_NAME`.*
 

@@ -144,9 +144,8 @@ class Net(nn.Module):
 	"""
 	NN class for Deformable Image Registration
 	"""
-	def __init__(self, device, depth=2, width=8, threeD=False, batchnorm=False):
+	def __init__(self, depth=2, width=8, threeD=False, batchnorm=False, **kwargs):
 		super().__init__()
-		self.device = device
 		self.threeD = threeD
 		self.DVFgenerator = UNet(depth=2, width=8, in_channels=2, out_channels=2, threeD=threeD, batchnorm=batchnorm)
 		self.apply(weight_init)
@@ -202,13 +201,13 @@ class Net(nn.Module):
 		self.to(self.device)
 
 
-def get_network(name, target_device="cuda:0", **kwargs):
+def get_network(name, **kwargs):
     implemented_classes = ["Net"]
     if name not in implemented_classes:
         raise NotImplementedError("class {} not implemented. \
             implemented network classes are {}".format(name, implemented_classes))
     elif name == "Net":
-        net_object = Net(device=target_device, **kwargs)
+        net_object = Net(**kwargs)
     else:
         raise RuntimeError("Something is wrong. \
             You probably added wrong name for the dataset class in implemented_classes variable")

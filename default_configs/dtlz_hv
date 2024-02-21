@@ -1,6 +1,6 @@
 # See possible parameters in config.py, only add the parameters that differ from default.
 DEBUG = False
-EXPERIMENT_NAME = "bug_fixing/dtlz2_obj2"
+EXPERIMENT_NAME = "test_dtlz"
 PROBLEM_NAME = "dtlz"
 DATASET = "TrigonometricDataset"
 DATA_PARAMS = {"n_samples":5, "n_targets":3, "cycles":1}
@@ -13,7 +13,7 @@ N_MO_SOL = 40
 ENSEMBLE_TYPE = "deep"
 
 MODEL_NAME = "Net"
-MODEL_PARAMS = {"n_var":2}
+MODEL_PARAMS = {"n_var":7}
 LOSS_FUNCTIONS = ["f1", "f2"]
 REF_POINT = [1.1, 1.1]
 

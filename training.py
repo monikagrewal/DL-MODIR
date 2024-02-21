@@ -23,21 +23,11 @@ def dynamic_weight_optimization_mean(data, mo_optimizer, net_ensemble, criterion
     inputs = data['X']
     labels = data['Y']
 
-    # dynamic weight calculation in epo and pareto MTL requires gradients, so needs extra forward & backward propagation
-    if opt_name in ['pareto_mtl', 'epo']:
-        dynamic_weights = mo_optimizer.compute_weights(net_ensemble.net_list,
-                                                    net_ensemble.optimizer_list,
-                                                    criterion,
-                                                    inputs,
-                                                    labels)
-
     # forward propagation
     _, mo_obj_val_per_sample, mo_obj_val_torch, mo_obj_val_mean, so_obj_val = forward_propagation(inputs, labels, net_ensemble, criterion)
 
     # compute dynamic weights
-    if opt_name in ['uhv', 'higamo_hv', 'linear_scalarization']:
-        dynamic_weights = mo_optimizer.compute_weights(mo_obj_val_mean)
-
+    dynamic_weights = mo_optimizer.compute_weights(mo_obj_val_mean)
     dynamic_weights = dynamic_weights.to(config.DEVICE)
     # backward propagation and optimizer step
     if net_ensemble.__class__.__name__=="DeepEnsemble":
@@ -77,18 +67,13 @@ def dynamic_weight_optimization_per_sample(data, mo_optimizer, net_ensemble, cri
     else:
         n_samples = inputs.shape[0]
     
-    # dynamic weight calculation in epo and pareto MTL
-    if opt_name in ['pareto_mtl', 'epo']:
-        raise ValueError("dynamic weight optimization per sample does not make sense for ParetoMTL and EPO (imo)")
-
     # forward propagation
     mo_obj_val_torch_per_sample, mo_obj_val_per_sample, _, _ = forward_propagation(inputs, labels, net_ensemble, criterion)
 
     # compute dynamic weights per sample
     dynamic_weights_per_sample = torch.ones(net_ensemble.n_mo_sol, net_ensemble.n_mo_obj, n_samples)
     for i_sample in range(0, n_samples):
-        if opt_name in ['uhv', 'higamo_hv', 'linear_scalarization']:
-            weights = mo_optimizer.compute_weights(mo_obj_val_per_sample[i_sample,:,:])
+        weights = mo_optimizer.compute_weights(mo_obj_val_per_sample[i_sample,:,:])
         dynamic_weights_per_sample[:, :, i_sample] = weights.permute(1,0)
 
     dynamic_weights_per_sample = dynamic_weights_per_sample.to(config.DEVICE)

@@ -6,6 +6,10 @@ import math
 import logging
 import pdb
 
+"""
+For information on GenMED problem, refer to https://ir.cwi.nl/pub/21263/bosman.pdf.
+"""
+
 
 class Loss(nn.Module):
     """

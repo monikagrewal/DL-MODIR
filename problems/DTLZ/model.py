@@ -12,14 +12,14 @@ class Net(nn.Module):
     def __init__(self, n_var=2, target_device="cuda:0", **kwargs):
         super().__init__()
         data = torch.rand(n_var, device=target_device)
-        self.params = [torch.nn.Parameter(data)]
+        self.params = torch.nn.Parameter(data)
 
 
     def forward(self, inputs):
         """
         inputs is used to be similar to other neural networks, but is ignored in this case.
         """
-        return torch.sigmoid(self.params[0])
+        return torch.sigmoid(self.params)
     
     def update_device(self, device):
         self.device = device

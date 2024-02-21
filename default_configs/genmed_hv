@@ -1,6 +1,6 @@
 # See possible parameters in config.py, only add the parameters that differ from default.
 DEBUG = False
-EXPERIMENT_NAME = "figures_for_paper/genmed_convex_ref111_nrun10"
+EXPERIMENT_NAME = "test_genmed"
 PROBLEM_NAME = "genmed"
 DATASET = "TrigonometricDataset"
 DATA_PARAMS = {"n_samples":5, "n_targets":3, "n_var":3, "weights":[1, 1, 1]}

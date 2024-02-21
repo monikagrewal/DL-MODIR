@@ -14,7 +14,7 @@ from torch.utils.tensorboard.writer import SummaryWriter
 
 from config import config
 from runtime_cache import RuntimeCache
-from mo_optimizers import linear_scalarization, higamo_hv, pareto_mtl
+from mo_optimizers import linear_scalarization, higamo_hv
 from net_ensembles import DeepEnsemble, KHeadEnsemble
 from training import train
 from utilities.logging import define_chart_layout

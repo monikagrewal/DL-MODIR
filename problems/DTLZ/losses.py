@@ -5,6 +5,9 @@ import numpy as np
 import math
 import pdb
 
+"""
+For information on DTLZ problem. Refer to https://pymoo.org/problems/many/dtlz.html
+"""
 
 # class Loss(nn.Module):
 #     """
