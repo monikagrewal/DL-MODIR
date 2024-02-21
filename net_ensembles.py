@@ -42,7 +42,8 @@ class DeepEnsemble():
             self.n_parameters_list.append(int(np.sum([cur_par.numel() for cur_par in self.net_list[i_mo_sol].parameters()])))
         # check that all networks have the same number of parameters
         assert np.all([x == self.n_parameters_list[0] for x in self.n_parameters_list])
-        self.n_parameters = self.n_parameters_list[0]
+        self.n_parameters = np.sum(self.n_parameters_list)
+        logging.info(f"Total number of parameters: {self.n_parameters}")
 
         # load weights
         if weights_path is not None:
@@ -84,7 +85,8 @@ class KHeadEnsemble():
 
         # count the number of parameters in all networks. If some do not have 'requires_grad' then this breaks (and probably more stuff in this code)
         self.n_parameters = int(np.sum([cur_par.numel() for cur_par in self.model.parameters()]))
-
+        logging.info(f"Total number of parameters: {self.n_parameters}")
+        
         # load weights
         if weights_path is not None:
             state_dict = torch.load(
