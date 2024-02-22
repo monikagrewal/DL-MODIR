@@ -86,7 +86,7 @@ class KHeadEnsemble():
         # count the number of parameters in all networks. If some do not have 'requires_grad' then this breaks (and probably more stuff in this code)
         self.n_parameters = int(np.sum([cur_par.numel() for cur_par in self.model.parameters()]))
         logging.info(f"Total number of parameters: {self.n_parameters}")
-
+        
         # load weights
         if weights_path is not None:
             state_dict = torch.load(
