@@ -1,6 +1,9 @@
-EXPERIMENT_DIR = "/export/scratch2/data/grewal/DL-MODIR/runs/final_experiments/hv_3obj_no_guidance_27012024_164218" #without guidance
+# EXPERIMENT_DIR = "/export/scratch2/data/grewal/DL-MODIR/runs/final_experiments/hv_2obj_deep_28012024_171135" #deep
+# EXPERIMENT_DIR = "/export/scratch2/data/grewal/DL-MODIR/runs/final_experiments/hv_2obj_khead_28012024_171215" #khead
+EXPERIMENT_DIR = "/export/scratch2/data/grewal/DL-MODIR/runs/final_experiments/hv_3obj_no_guidance_27012024_164218" #no guidance
 # EXPERIMENT_DIR = "/export/scratch2/data/grewal/DL-MODIR/runs/final_experiments/hv_3obj_27012024_164257" #hv_3obj
 # EXPERIMENT_DIR = "/export/scratch2/data/grewal/DL-MODIR/runs/final_experiments/ls_3obj_27012024_163005" #ls_3obj
 VISUALIZE_OUTPUT = "test"
 DATA_PARAMS = {"root":"/export/scratch2/data/grewal/Data/Projects_JPG_data/MO_DIR/LUMC_cervical_test_annotated", "processed_foldername":"preprocessed111", "use_segmentation":"true", "load_pts":"true", "inplane_size":224, "max_depth":200}
 LOSS_FUNCTIONS =["NCCLoss", "SpatialGradientLoss3D", "SegSimilarityLoss"]
+REF_POINT = [1, 1, 1]

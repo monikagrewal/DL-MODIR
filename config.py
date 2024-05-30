@@ -96,6 +96,7 @@ class TestConfig(BaseSettings):
 	VISUALIZE_OUTPUT: Literal["none", "val", "test", "all"] = "none"
 	DATA_PARAMS: Dict = {"root": "/export/scratch2/data/grewal/Data/Projects_JPG_data/MO_DIR/LUMC_cervical_test_annotated"}
 	LOSS_FUNCTIONS: List = ["NCCLoss", "TransformationLoss", "SegSimilarityLoss"]
+	REF_POINT: Tuple = (1, 1, 1)
 
 
 def get_config(env_file=cli_args.env_file, test_env_file=cli_args.test_env_file):
@@ -144,6 +145,7 @@ def get_config(env_file=cli_args.env_file, test_env_file=cli_args.test_env_file)
 			config.VISUALIZE_OUTPUT = test_settings.VISUALIZE_OUTPUT
 			config.DATA_PARAMS = test_settings.DATA_PARAMS
 			config.LOSS_FUNCTIONS = test_settings.LOSS_FUNCTIONS
+			config.REF_POINT = test_settings.REF_POINT
 			return config
 		else:
 			print("No env_file or out_dir supplied. " "Creating default config.")

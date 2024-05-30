@@ -2,7 +2,7 @@
 DEBUG = False
 NFOLDS = 5
 RANDOM_SEED = 20240127
-EXPERIMENT_NAME = "final_experiments/hv_3obj_no_guidance"
+EXPERIMENT_NAME = "final_experiments/hv_2obj_khead"
 PROBLEM_NAME = "modir3d"
 DATASET = "AMCBrachy"
 DATA_PARAMS = {"root":"/export/scratch2/data/grewal/Data/Projects_JPG_data/MO_DIR/LUMC_cervical_train", "use_segmentation":"true", "processed_foldername":"preprocessed111"}

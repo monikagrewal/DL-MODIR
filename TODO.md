@@ -64,3 +64,8 @@
 - To compare:
         -- HV deep vs HV k-decoders
         -- LS vs HV
+
+# TODO - 22 Feb, 2024
+- no guidance vs guidance plot with varying colors for each run
+- table with max dice and folding
+- write experiment
