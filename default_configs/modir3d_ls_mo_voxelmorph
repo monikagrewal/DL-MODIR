@@ -2,16 +2,17 @@
 DEBUG = False
 NFOLDS = 5
 RANDOM_SEED = 20240127
-EXPERIMENT_NAME = "final_experiments/ls_3obj"
+EXPERIMENT_NAME = "final_experiments/test_memory"
 PROBLEM_NAME = "modir3d"
 DATASET = "AMCBrachy"
 DATA_PARAMS = {"root":"/export/scratch2/data/grewal/Data/Projects_JPG_data/MO_DIR/LUMC_cervical_train", "use_segmentation":"true", "processed_foldername":"preprocessed111"}
 
 MO_MODE = "mean_loss_over_samples"
 MO_OPTIMIZER = "linear_scalarization"
-MO_OPTIMIZER_PARAMS = {"weights":[[0, 0, 1], [0, 0.1, 0.5], [0, 0.1, 1], [0, 0.5, 1], [0, 1, 0], [0, 1, 0.5], [0, 1, 1], [0.5, 0, 1], [0.5, 0.1, 0], [0.5, 0.1, 0.5], [0.5, 0.1, 1], [0.5, 0.5, 1], [0.5, 1, 0], [0.5, 1, 0.5], [0.5, 1, 1], [1, 0, 0], [1, 0, 0.5], [1, 0, 1], [1, 0.1, 0], [1, 0.1, 0.5], [1, 0.1, 1], [1, 0.5, 0], [1, 0.5, 0.5], [1, 0.5, 1], [1, 1, 0], [1, 1, 0.5], [1, 1, 1]]}
-N_MO_SOL = 27
-ENSEMBLE_TYPE = "khead"
+# MO_OPTIMIZER_PARAMS = {"weights":[[0, 0, 1], [0, 0.1, 0.5], [0, 0.1, 1], [0, 0.5, 1], [0, 1, 0], [0, 1, 0.5], [0, 1, 1], [0.5, 0, 1], [0.5, 0.1, 0], [0.5, 0.1, 0.5], [0.5, 0.1, 1], [0.5, 0.5, 1], [0.5, 1, 0], [0.5, 1, 0.5], [0.5, 1, 1], [1, 0, 0], [1, 0, 0.5], [1, 0, 1], [1, 0.1, 0], [1, 0.1, 0.5], [1, 0.1, 1], [1, 0.5, 0], [1, 0.5, 0.5], [1, 0.5, 1], [1, 1, 0], [1, 1, 0.5], [1, 1, 1]]}
+MO_OPTIMIZER_PARAMS = {"weights":[[0, 0, 1]]}
+N_MO_SOL = 1
+ENSEMBLE_TYPE = "deep"
 
 MODEL_NAME = "MOVoxelMorph"
 MODEL_PARAMS = {"int_downsize":1, "int_steps":0, "use_segmentation":"true"}
